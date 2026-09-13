@@ -58,12 +58,12 @@ html, body {
 }
 .buddy-slot { width: 42px; height: 42px; flex-shrink: 0; }
 .buddy { display: block; overflow: visible; flex-shrink: 0; }
-.eye {
-  fill: #171717;
+.eye, .eye-white {
   transform-box: fill-box;
   transform-origin: 50% 50%;
   animation: blink 5s var(--blink, 0s) infinite;
 }
+.eye { fill: #171717; }
 .wink-left .eye-l, .wink-right .eye-r {
   animation: blink 5s var(--blink, 0s) infinite, wink 7.5s var(--blink, 0s) infinite;
 }
