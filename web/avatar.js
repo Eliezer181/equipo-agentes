@@ -32,39 +32,33 @@ function buddyInner(spec) {
   const id = uid(spec);
   return `<g class="buddy-face">
     <defs>
-      <clipPath id="c${id}"><ellipse cx="12" cy="12.1" rx="6.35" ry="5.15"/></clipPath>
-      <radialGradient id="h${id}" cx="32%" cy="24%" r="80%">
-        <stop offset="0%" stop-color="${tint(color, 72)}"/>
-        <stop offset="38%" stop-color="${color}"/>
-        <stop offset="100%" stop-color="${tint(color, -58)}"/>
+      <clipPath id="c${id}"><ellipse cx="12" cy="12.15" rx="6.2" ry="5"/></clipPath>
+      <radialGradient id="h${id}" cx="46%" cy="40%" r="72%">
+        <stop offset="0%" stop-color="${tint(color, 18)}"/>
+        <stop offset="70%" stop-color="${color}"/>
+        <stop offset="100%" stop-color="${tint(color, -28)}"/>
       </radialGradient>
-      <radialGradient id="v${id}" cx="42%" cy="28%" r="78%">
-        <stop offset="0%" stop-color="#243044"/>
-        <stop offset="100%" stop-color="#05070c"/>
+      <radialGradient id="v${id}" cx="50%" cy="46%" r="70%">
+        <stop offset="0%" stop-color="#141820"/>
+        <stop offset="100%" stop-color="#07080b"/>
       </radialGradient>
-      <radialGradient id="e${id}" cx="30%" cy="28%" r="72%">
+      <radialGradient id="e${id}" cx="40%" cy="38%" r="70%">
         <stop offset="0%" stop-color="#ffffff"/>
-        <stop offset="55%" stop-color="#f4f4f5"/>
-        <stop offset="100%" stop-color="#d4d4d8"/>
+        <stop offset="100%" stop-color="#e4e4e7"/>
       </radialGradient>
-      <filter id="s${id}" x="-25%" y="-25%" width="150%" height="150%">
-        <feDropShadow dx="0" dy="1.1" stdDeviation="0.8" flood-color="#000" flood-opacity=".45"/>
-      </filter>
     </defs>
-    <ellipse class="shell" cx="12" cy="12.15" rx="9.05" ry="9.25" fill="url(#h${id})" filter="url(#s${id})"/>
-    <ellipse class="visor" cx="12" cy="12.1" rx="6.45" ry="5.25" fill="url(#v${id})"/>
+    <ellipse class="shell" cx="12" cy="12.2" rx="8.9" ry="9" fill="url(#h${id})"/>
+    <ellipse class="visor" cx="12" cy="12.15" rx="6.25" ry="5.05" fill="url(#v${id})"/>
     <g class="brows" opacity="0">
       <rect class="brow-l" x="7.3" y="9.55" width="3.4" height="0.62" rx="0.28" fill="#f8fafc" transform="rotate(26 9 9.86)"/>
       <rect class="brow-r" x="13.3" y="9.55" width="3.4" height="0.62" rx="0.28" fill="#f8fafc" transform="rotate(-26 15 9.86)"/>
     </g>
     <g clip-path="url(#c${id})">
       <g class="eyes">
-        <ellipse class="eye-led eye-l" cx="9.35" cy="12.35" rx="1.55" ry="1.85" fill="url(#e${id})"/>
-        <ellipse class="eye-led eye-r" cx="14.65" cy="12.35" rx="1.55" ry="1.85" fill="url(#e${id})"/>
+        <ellipse class="eye-led eye-l" cx="9.4" cy="12.4" rx="1.5" ry="1.75" fill="url(#e${id})"/>
+        <ellipse class="eye-led eye-r" cx="14.6" cy="12.4" rx="1.5" ry="1.75" fill="url(#e${id})"/>
       </g>
-      <ellipse class="glass" cx="10.2" cy="9.7" rx="3.1" ry="1.05" fill="#fff" opacity=".2"/>
     </g>
-    <ellipse cx="8.4" cy="7.3" rx="2.4" ry="1.35" fill="#fff" opacity=".28"/>
   </g>`;
 }
 
