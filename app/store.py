@@ -313,6 +313,23 @@ def create_group(name: str, task: str, leader: str, members: list[dict]) -> dict
     return group
 
 
+def add_group_member(group_id: str, member: dict) -> dict | None:
+    group = get_group(group_id)
+    if not group:
+        return None
+    if any(m.get("id") == member["id"] for m in group.get("members", [])):
+        return group
+    group.setdefault("members", []).append({
+        "id": member["id"],
+        "name": member["name"],
+        "title": member.get("title", ""),
+        "color": member.get("color", "#f97316"),
+        "instructions": member.get("instructions", ""),
+    })
+    save_group(group)
+    return group
+
+
 def remove_group_member(group_id: str, member_id: str) -> dict | None:
     group = get_group(group_id)
     if not group:
