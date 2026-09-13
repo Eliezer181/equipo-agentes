@@ -27,36 +27,38 @@ function uid(spec) {
   return String((spec && spec.id) || "x").replace(/[^a-zA-Z0-9_-]/g, "") + hashId(spec && spec.id);
 }
 
+function ringPoint(deg) {
+  const a = (deg * Math.PI) / 180;
+  return [+(12 + 7.55 * Math.cos(a)).toFixed(2), +(12 - 7.55 * Math.sin(a)).toFixed(2)];
+}
+
 function buddyInner(spec) {
-  const color = (spec && spec.color) || "#f3ead8";
+  const color = (spec && spec.color) || "#f97316";
   const id = uid(spec);
+  const [sx, sy] = ringPoint(52);
+  const [ex, ey] = ringPoint(78);
   return `<g class="buddy-face">
     <defs>
-      <clipPath id="c${id}"><ellipse cx="12" cy="12.15" rx="6.2" ry="5"/></clipPath>
-      <radialGradient id="h${id}" cx="46%" cy="40%" r="72%">
-        <stop offset="0%" stop-color="${tint(color, 18)}"/>
-        <stop offset="70%" stop-color="${color}"/>
-        <stop offset="100%" stop-color="${tint(color, -28)}"/>
-      </radialGradient>
-      <radialGradient id="v${id}" cx="50%" cy="46%" r="70%">
-        <stop offset="0%" stop-color="#141820"/>
-        <stop offset="100%" stop-color="#07080b"/>
-      </radialGradient>
-      <radialGradient id="e${id}" cx="40%" cy="38%" r="70%">
-        <stop offset="0%" stop-color="#ffffff"/>
-        <stop offset="100%" stop-color="#e4e4e7"/>
-      </radialGradient>
+      <clipPath id="c${id}"><ellipse cx="12" cy="12.2" rx="6.05" ry="6.05"/></clipPath>
+      <linearGradient id="h${id}" x1="22%" y1="8%" x2="78%" y2="92%">
+        <stop offset="0%" stop-color="${tint(color, 22)}"/>
+        <stop offset="55%" stop-color="${color}"/>
+        <stop offset="100%" stop-color="${tint(color, -24)}"/>
+      </linearGradient>
+      <filter id="g${id}" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="0" stdDeviation="1.15" flood-color="${color}" flood-opacity=".35"/>
+      </filter>
     </defs>
-    <ellipse class="shell" cx="12" cy="12.2" rx="8.9" ry="9" fill="url(#h${id})"/>
-    <ellipse class="visor" cx="12" cy="12.15" rx="6.25" ry="5.05" fill="url(#v${id})"/>
+    <path class="shell" d="M ${sx} ${sy} A 7.55 7.55 0 1 1 ${ex} ${ey}" fill="none" stroke="url(#h${id})" stroke-width="3.35" stroke-linecap="round" filter="url(#g${id})"/>
+    <ellipse class="visor" cx="12" cy="12.15" rx="6.05" ry="5.85" fill="#0a0c10"/>
     <g class="brows" opacity="0">
-      <rect class="brow-l" x="7.3" y="9.55" width="3.4" height="0.62" rx="0.28" fill="#f8fafc" transform="rotate(26 9 9.86)"/>
-      <rect class="brow-r" x="13.3" y="9.55" width="3.4" height="0.62" rx="0.28" fill="#f8fafc" transform="rotate(-26 15 9.86)"/>
+      <rect class="brow-l" x="7.15" y="9.35" width="3.5" height="0.58" rx="0.28" fill="#f8fafc" transform="rotate(26 8.9 9.64)"/>
+      <rect class="brow-r" x="13.35" y="9.35" width="3.5" height="0.58" rx="0.28" fill="#f8fafc" transform="rotate(-26 15.1 9.64)"/>
     </g>
     <g clip-path="url(#c${id})">
       <g class="eyes">
-        <ellipse class="eye-led eye-l" cx="9.4" cy="12.4" rx="1.5" ry="1.75" fill="url(#e${id})"/>
-        <ellipse class="eye-led eye-r" cx="14.6" cy="12.4" rx="1.5" ry="1.75" fill="url(#e${id})"/>
+        <ellipse class="eye-led eye-l" cx="9.15" cy="12.55" rx="1.55" ry="2.05" fill="#f8fafc"/>
+        <ellipse class="eye-led eye-r" cx="14.85" cy="12.55" rx="1.55" ry="2.05" fill="#f8fafc"/>
       </g>
     </g>
   </g>`;
@@ -231,7 +233,7 @@ const BuddyLife = {
         if (b.status === "talk") {
           const p = 0.5 + 0.5 * Math.sin(now / 90);
           b.visor.style.fill = `rgb(${20 + p * 40},${80 + p * 80},${180 + p * 40})`;
-        } else if (b.status === "sleep") b.visor.style.fill = "#0a0c12";
+        } else if (b.status === "sleep") b.visor.style.fill = "#05060a";
         else b.visor.style.fill = "";
       }
       b.svg.classList.toggle("sleep", b.status === "sleep");
