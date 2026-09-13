@@ -8,24 +8,34 @@ GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 XAI_URL = "https://api.x.ai/v1"
 
 
-def client() -> OpenAI:
+def _keys() -> tuple[str, str]:
     gemini = os.getenv("GEMINI_API_KEY", "").strip()
+    xai = os.getenv("XAI_API_KEY", "").strip()
+    return gemini, xai
+
+
+def _is_xai(key: str) -> bool:
+    return key.startswith("xai-")
+
+
+def client() -> OpenAI:
+    gemini, xai = _keys()
     if gemini:
         return OpenAI(api_key=gemini, base_url=os.getenv("GEMINI_BASE_URL", GEMINI_URL))
-
-    xai = os.getenv("XAI_API_KEY", "").strip()
+    if xai and not _is_xai(xai):
+        return OpenAI(api_key=xai, base_url=os.getenv("GEMINI_BASE_URL", GEMINI_URL))
     if xai:
         return OpenAI(api_key=xai, base_url=os.getenv("XAI_BASE_URL", XAI_URL))
-
-    raise RuntimeError(
-        "Falta GEMINI_API_KEY. Creala en https://aistudio.google.com/apikey y cargala en Fly."
-    )
+    raise RuntimeError("Falta GEMINI_API_KEY (o XAI_API_KEY con la clave de Gemini).")
 
 
 def default_model() -> str:
-    if os.getenv("GEMINI_API_KEY", "").strip():
-        return os.getenv("MODEL", "gemini-2.5-flash")
-    return os.getenv("MODEL", "grok-4.3")
+    configured = os.getenv("MODEL", "").strip()
+    gemini, xai = _keys()
+    using_gemini = bool(gemini or (xai and not _is_xai(xai)))
+    if configured:
+        return configured
+    return "gemini-2.5-flash" if using_gemini else "grok-4.3"
 
 
 def reply(instructions: str, history: list[dict]) -> str:
