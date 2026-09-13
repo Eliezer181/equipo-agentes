@@ -3,6 +3,7 @@ const searchEl = document.getElementById("search");
 const modal = document.getElementById("modal");
 const groupModal = document.getElementById("group-modal");
 const infoModal = document.getElementById("info-modal");
+const agentModal = document.getElementById("agent-modal");
 const thread = document.getElementById("thread");
 const input = document.getElementById("input");
 
@@ -41,25 +42,26 @@ function renderList(filter = "") {
         <div class="time">${timeLabel(g.last_at)}</div>
       </button>`).join("");
 
-  const specRows = specialists
-    .filter((s) => match(`${s.name} ${s.title}`))
-    .map((s) => `
-      <div class="row" data-id="${s.id}">
+  const active = specialists.filter((s) => !s.archived && match(`${s.name} ${s.title}`));
+  const stored = specialists.filter((s) => s.archived && match(`${s.name} ${s.title}`));
+  const specRow = (s) => `
+      <div class="row${s.archived ? " archived" : ""}" data-id="${s.id}">
         ${buddySvg(s, 42)}
         <button type="button" class="open-spec" data-open="${s.id}">
           <div class="name">${escapeHtml(s.name)} <span class="badge">${escapeHtml(s.title || "")}</span></div>
           <div class="preview">${escapeHtml(s.last_message || "Sin mensajes")}</div>
         </button>
         <div class="time">${timeLabel(s.last_at)}</div>
-        <button type="button" class="grip" data-grip="${s.id}" aria-label="Mover">
+        ${s.archived ? "<span></span>" : `<button type="button" class="grip" data-grip="${s.id}" aria-label="Mover">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.6"/><circle cx="16" cy="6" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="18" r="1.6"/><circle cx="16" cy="18" r="1.6"/></svg>
-        </button>
-      </div>`).join("");
+        </button>`}
+      </div>`;
 
   let html = "";
   if (groupRows) html += `<div class="section-label">Grupos</div>${groupRows}`;
   html += `<div class="section-label">Agentes</div>`;
-  html += specRows || `<p class="preview" style="padding:8px 16px">Todavía no hay agentes.</p>`;
+  html += active.map(specRow).join("") || `<p class="preview" style="padding:8px 16px">Todavía no hay agentes.</p>`;
+  if (stored.length) html += `<div class="section-label">Archivados</div>${stored.map(specRow).join("")}`;
   listEl.innerHTML = html;
 }
 
@@ -122,6 +124,7 @@ async function refreshGroup(id) {
 function closeChat() {
   show("inbox");
   infoModal.classList.add("hidden");
+  if (agentModal) agentModal.classList.add("hidden");
   loadList();
 }
 
@@ -142,6 +145,23 @@ function openGroupInfo() {
   infoModal.classList.remove("hidden");
 }
 
+function openAgentSheet() {
+  if (!current || current.type !== "specialist" || !agentModal) return;
+  document.getElementById("edit-name").value = current.name || "";
+  document.getElementById("edit-title").value = current.title || "";
+  document.getElementById("edit-instructions").value = current.instructions || "";
+  document.getElementById("edit-color").value = current.color || "";
+  const box = document.getElementById("notify-toggle");
+  if (box) box.checked = localStorage.getItem("equipo-notify") !== "off";
+  const pal = document.getElementById("edit-palette");
+  const colors = (typeof PALETTE !== "undefined" && PALETTE) || ["#f97316", "#38bdf8", "#34d399", "#a78bfa", "#fb7185", "#facc15"];
+  pal.innerHTML = colors.map((c) =>
+    `<button type="button" data-color="${c}" style="background:${c}" class="${(current.color || "").toLowerCase() === c.toLowerCase() ? "on" : ""}"></button>`
+  ).join("");
+  document.getElementById("btn-archive").textContent = current.archived ? "Desarchivar" : "Archivar";
+  agentModal.classList.remove("hidden");
+}
+
 document.getElementById("btn-search").onclick = () => {
   searchEl.classList.toggle("hidden");
   if (!searchEl.classList.contains("hidden")) searchEl.focus();
@@ -152,9 +172,91 @@ document.getElementById("btn-cancel").onclick = () => modal.classList.add("hidde
 document.getElementById("btn-back").onclick = closeChat;
 document.getElementById("btn-close-info").onclick = () => infoModal.classList.add("hidden");
 
-document.getElementById("chat-who").onclick = () => {
-  if (current && current.type === "group") openGroupInfo();
-};
+document.getElementById("chat-who").addEventListener("click", (e) => {
+  e.preventDefault();
+  if (!current) return;
+  if (current.type === "specialist") openAgentSheet();
+  else openGroupInfo();
+});
+
+const menuBtn = document.getElementById("btn-agent-menu");
+if (menuBtn) {
+  menuBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!current) return;
+    if (current.type === "specialist") openAgentSheet();
+    else openGroupInfo();
+  });
+}
+
+if (agentModal) {
+  document.getElementById("edit-palette").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-color]");
+    if (!b) return;
+    document.getElementById("edit-color").value = b.dataset.color;
+    document.querySelectorAll("#edit-palette button").forEach((x) => x.classList.toggle("on", x === b));
+  });
+  document.getElementById("btn-close-agent").onclick = () => agentModal.classList.add("hidden");
+  document.getElementById("notify-toggle").onchange = (e) => {
+    localStorage.setItem("equipo-notify", e.target.checked ? "on" : "off");
+    if (e.target.checked && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  };
+  document.getElementById("edit-agent").onsubmit = async (e) => {
+    e.preventDefault();
+    if (!current || current.type !== "specialist") return;
+    const payload = {
+      name: document.getElementById("edit-name").value.trim(),
+      title: document.getElementById("edit-title").value.trim(),
+      instructions: document.getElementById("edit-instructions").value,
+      color: document.getElementById("edit-color").value || current.color,
+    };
+    const res = await fetch(`/api/specialists/${current.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const item = await res.json();
+    if (!res.ok) return alert(item.detail || "No se pudo guardar");
+    current = { type: "specialist", ...item };
+    const idx = specialists.findIndex((s) => s.id === item.id);
+    if (idx >= 0) specialists[idx] = item;
+    document.getElementById("chat-name").textContent = item.name;
+    document.getElementById("chat-title").textContent = item.title || "";
+    document.getElementById("chat-dot").innerHTML = buddySvg(item, 42);
+    agentModal.classList.add("hidden");
+  };
+  document.getElementById("btn-clear-chat").onclick = async () => {
+    if (!current || current.type !== "specialist") return;
+    if (!confirm("¿Vaciar este chat? No se borra el agente.")) return;
+    const res = await fetch(`/api/specialists/${current.id}/messages`, { method: "DELETE" });
+    if (!res.ok) return alert("No se pudo vaciar");
+    renderThread([]);
+    agentModal.classList.add("hidden");
+  };
+  document.getElementById("btn-archive").onclick = async () => {
+    if (!current || current.type !== "specialist") return;
+    const res = await fetch(`/api/specialists/${current.id}/archive`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived: !current.archived }),
+    });
+    const item = await res.json();
+    if (!res.ok) return alert(item.detail || "No se pudo archivar");
+    agentModal.classList.add("hidden");
+    closeChat();
+  };
+  document.getElementById("btn-delete-agent").onclick = async () => {
+    if (!current || current.type !== "specialist") return;
+    if (!confirm(`¿Eliminar a ${current.name}? Se borra el chat también.`)) return;
+    const res = await fetch(`/api/specialists/${current.id}`, { method: "DELETE" });
+    if (!res.ok) return alert("No se pudo eliminar");
+    agentModal.classList.add("hidden");
+    closeChat();
+  };
+}
 
 listEl.onclick = (e) => {
   if (e.target.closest("[data-grip]")) return;
