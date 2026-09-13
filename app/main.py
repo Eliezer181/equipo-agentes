@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app.llm import reply
+from app.llm import _models, _using_gemini, reply
 from app.store import create_specialist, get_specialist, list_specialists, load_messages, save_messages, _now
 
 load_dotenv()
@@ -32,7 +32,12 @@ class ChatIn(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"ok": True}
+    return {"ok": True, "release": "v4"}
+
+
+@app.get("/api/version")
+def api_version():
+    return {"release": "v4", "gemini": _using_gemini(), "models": _models()}
 
 
 @app.get("/")
