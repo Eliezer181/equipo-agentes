@@ -42,6 +42,7 @@ class SpecialistIn(BaseModel):
     name: str = Field(min_length=1, max_length=40)
     title: str = Field(default="Especialista", max_length=40)
     instructions: str = Field(default="", max_length=4000)
+    color: str | None = Field(default=None, max_length=16)
 
 
 class ChatIn(BaseModel):
@@ -65,17 +66,22 @@ class KickIn(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "release": "v5"}
+    return {"ok": True, "release": "v6"}
 
 
 @app.get("/api/version")
 def version():
-    return {"release": "v5", "gemini": _using_gemini(), "models": _models()}
+    return {"release": "v6", "gemini": _using_gemini(), "models": _models()}
 
 
 @app.get("/")
 def home():
     return FileResponse(WEB / "index.html")
+
+
+@app.get("/avatares")
+def avatares():
+    return FileResponse(WEB / "avatares.html")
 
 
 @app.get("/api/specialists")
@@ -85,7 +91,7 @@ def api_list():
 
 @app.post("/api/specialists")
 def api_create(payload: SpecialistIn):
-    return create_specialist(payload.name, payload.title, payload.instructions)
+    return create_specialist(payload.name, payload.title, payload.instructions, payload.color)
 
 
 @app.post("/api/specialists/reorder")
