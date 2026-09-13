@@ -6,8 +6,12 @@ from openai import OpenAI
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 XAI_URL = "https://api.x.ai/v1"
-GEMINI_DEFAULT = "gemini-flash-latest"
-LEGACY = {"gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"}
+GEMINI_MODELS = (
+    "gemini-3.8-flash",
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-flash-latest",
+)
 
 
 def _keys() -> tuple[str, str]:
@@ -18,6 +22,11 @@ def _keys() -> tuple[str, str]:
 
 def _is_xai(key: str) -> bool:
     return key.startswith("xai-")
+
+
+def _using_gemini() -> bool:
+    gemini, xai = _keys()
+    return bool(gemini or (xai and not _is_xai(xai)))
 
 
 def client() -> OpenAI:
@@ -31,15 +40,17 @@ def client() -> OpenAI:
     raise RuntimeError("Falta GEMINI_API_KEY (o XAI_API_KEY con la clave de Gemini).")
 
 
-def default_model() -> str:
+def _models() -> list[str]:
     configured = os.getenv("MODEL", "").strip()
-    gemini, xai = _keys()
-    using_gemini = bool(gemini or (xai and not _is_xai(xai)))
-    if using_gemini:
-        if not configured or configured in LEGACY:
-            return GEMINI_DEFAULT
-        return configured
-    return configured or "grok-4.3"
+    if not _using_gemini():
+        return [configured or "grok-4.3"]
+    out: list[str] = []
+    if configured and "2.5" not in configured and "2.0" not in configured:
+        out.append(configured)
+    for name in GEMINI_MODELS:
+        if name not in out:
+            out.append(name)
+    return out
 
 
 def reply(instructions: str, history: list[dict]) -> str:
@@ -48,9 +59,20 @@ def reply(instructions: str, history: list[dict]) -> str:
         role = item.get("role")
         if role in {"user", "assistant"} and item.get("content"):
             messages.append({"role": role, "content": item["content"]})
-    response = client().chat.completions.create(
-        model=default_model(),
-        messages=messages,
-        temperature=0.4,
-    )
-    return (response.choices[0].message.content or "").strip()
+    last_error = None
+    api = client()
+    for model in _models():
+        try:
+            response = api.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=0.4,
+            )
+            return (response.choices[0].message.content or "").strip()
+        except Exception as exc:
+            last_error = exc
+            text = str(exc).lower()
+            if "model not found" in text or "invalid-argument" in text or "not found" in text:
+                continue
+            raise
+    raise last_error or RuntimeError("No se pudo usar ningún modelo de Gemini")
