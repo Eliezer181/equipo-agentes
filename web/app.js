@@ -21,10 +21,6 @@ function timeLabel(iso) {
   return d.toLocaleTimeString("es-PY", { hour: "numeric", minute: "2-digit" });
 }
 
-function initials(name) {
-  return (name || "?").split(/\s+/).slice(0, 2).map((w) => w[0] || "").join("").toUpperCase();
-}
-
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -37,7 +33,7 @@ function renderList(filter = "") {
     .filter((g) => match(`${g.name} ${g.task} ${g.members.map((m) => m.name).join(" ")}`))
     .map((g) => `
       <button class="row group-row" data-group="${g.id}">
-        <div class="dot dot-group">${initials(g.name)}</div>
+        ${packSvg(g.members, 42)}
         <div>
           <div class="name">${escapeHtml(g.name)} <span class="badge badge-group">${g.members.length}</span></div>
           <div class="preview">${escapeHtml(g.last_message || "Sin mensajes")}</div>
@@ -49,7 +45,7 @@ function renderList(filter = "") {
     .filter((s) => match(`${s.name} ${s.title}`))
     .map((s) => `
       <div class="row" data-id="${s.id}">
-        <div class="dot" style="background:${s.color}">${(s.name || "?").slice(0,1).toUpperCase()}</div>
+        ${buddySvg(s, 42)}
         <button type="button" class="open-spec" data-open="${s.id}">
           <div class="name">${escapeHtml(s.name)} <span class="badge">${escapeHtml(s.title || "")}</span></div>
           <div class="preview">${escapeHtml(s.last_message || "Sin mensajes")}</div>
@@ -99,10 +95,7 @@ async function openChat(id) {
   document.getElementById("chat-name").textContent = spec.name;
   document.getElementById("chat-title").textContent = spec.title || "";
   document.getElementById("chat-title").classList.remove("small-meta");
-  const dot = document.getElementById("chat-dot");
-  dot.style.background = spec.color;
-  dot.textContent = (spec.name || "?").slice(0, 1).toUpperCase();
-  dot.classList.remove("dot-group");
+  document.getElementById("chat-dot").innerHTML = buddySvg(spec, 42);
   const messages = await (await fetch(`/api/specialists/${id}/messages`)).json();
   renderThread(messages);
   show("chat");
@@ -116,10 +109,7 @@ async function openGroup(id) {
   document.getElementById("chat-name").textContent = group.name;
   document.getElementById("chat-title").textContent = `${group.members.length} integrantes`;
   document.getElementById("chat-title").classList.add("small-meta");
-  const dot = document.getElementById("chat-dot");
-  dot.style.background = "linear-gradient(135deg,#6366f1,#22d3ee)";
-  dot.textContent = initials(group.name);
-  dot.classList.add("dot-group");
+  document.getElementById("chat-dot").innerHTML = packSvg(group.members, 42);
   renderThread(meta);
   show("chat");
 }
@@ -142,7 +132,7 @@ function openGroupInfo() {
   const canKick = (current.members || []).length > 1;
   document.getElementById("info-members").innerHTML = (current.members || []).map((m) => `
     <div class="info-row">
-      <div class="dot" style="background:${m.color}">${(m.name || "?").slice(0,1).toUpperCase()}</div>
+      ${buddySvg(m, 36)}
       <div>
         <div class="name">${escapeHtml(m.name)}</div>
         <div class="preview">${escapeHtml(m.title || "Agente")}</div>
@@ -194,7 +184,8 @@ document.getElementById("btn-add-group").onclick = async () => {
     ? specialists.map((s) => `
       <label class="member-check">
         <input type="checkbox" name="members" value="${s.id}" />
-        <span class="dot mini" style="background:${s.color}"></span> ${escapeHtml(s.name)}
+        ${buddySvg(s, 22)}
+        ${escapeHtml(s.name)}
       </label>`).join("")
     : `<p class="preview">Primero creá un agente con +</p>`;
   groupModal.classList.remove("hidden");
