@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Avatares 3D</title>
+<style>
+html,body{margin:0;height:100%;background:#070914;color:#eef2ff;font-family:-apple-system,sans-serif;touch-action:none;overflow:hidden}
+#c{position:fixed;inset:0;width:100%;height:100%}
+.hud{position:fixed;left:16px;right:16px;top:calc(10px + env(safe-area-inset-top));z-index:2;pointer-events:none}
+p{color:#93a0c0;font-size:13px;margin:4px 0 0}
+.pick,.colors{position:fixed;left:12px;right:12px;z-index:2;display:flex;gap:8px;overflow:auto}
+.colors{bottom:calc(62px + env(safe-area-inset-bottom));justify-content:center}
+.pick{bottom:calc(12px + env(safe-area-inset-bottom))}
+.pick button{flex:1 0 auto;min-width:70px;border:1px solid #2a3558;background:#12182c;color:#dbeafe;border-radius:12px;padding:10px 8px}
+.pick button.on{border-color:#7dd3fc}
+.colors button{width:28px;height:28px;border-radius:50%;border:2px solid #0b1020}
+.colors button.on{outline:2px solid #fff}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud"><h1 style="margin:0;font-size:18px">Avatares 3D</h1><p>Elegí color. Swipe rápido = sorpresa. 8s sin tocar = duermen.</p></div>
+<div class="colors" id="colors"></div>
+<div class="pick" id="pick"></div>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from "three";
+const PALETTE=["#f3ead8","#f97316","#38bdf8","#34d399","#a78bfa","#fb7185","#facc15","#22d3ee"];
+const SPECS=[
+  {name:"Eve",color:PALETTE[0]},{name:"Jefe",color:PALETTE[1]},{name:"Max",color:PALETTE[2]},
+  {name:"Vellum",color:PALETTE[3]},{name:"Nexus",color:PALETTE[4]},{name:"Luna",color:PALETTE[5]}
+];
+const canvas=document.getElementById("c");
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+const scene=new THREE.Scene(); scene.background=new THREE.Color("#0a1020");
+const camera=new THREE.PerspectiveCamera(36,1,0.1,40); camera.position.set(0,0.2,8.4);
+scene.add(new THREE.HemisphereLight("#b7d4ff","#1a1420",1.05));
+const key=new THREE.DirectionalLight("#fff6ea",2); key.position.set(-2.6,3.2,5); scene.add(key);
+function makeHead(hex){
+  const root=new THREE.Group();
+  const shell=new THREE.MeshPhysicalMaterial({color:hex,roughness:.32,metalness:.06,clearcoat:.85,clearcoatRoughness:.22});
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.78,48,36),shell); head.scale.set(1,1.05,.98); root.add(head);
+  const visor=new THREE.Mesh(new THREE.CircleGeometry(.5,40), new THREE.MeshPhysicalMaterial({color:"#070b14",roughness:.12,metalness:.45,clearcoat:1}));
+  visor.position.set(0,.06,.79); root.add(visor);
+  const face=new THREE.Group(); face.position.set(0,.07,.81);
+  const eyeMat=new THREE.MeshStandardMaterial({color:"#4cc9ff",emissive:"#3ec4ff",emissiveIntensity:3.2,toneMapped:false});
+  const geo=new THREE.CircleGeometry(.11,24);
+  const left=new THREE.Mesh(geo,eyeMat), right=new THREE.Mesh(geo,eyeMat.clone());
+  left.position.x=-.16; right.position.x=.16; face.add(left,right); root.add(face);
+  return {root,face,left,right,shellMat:shell,visor};
+}
+const bots=SPECS.map((spec,i)=>{
+  const bot=makeHead(spec.color);
+  bot.spec=spec;
+  bot.root.position.set((i%3-1)*2.15, 1.05-Math.floor(i/3)*2.25, 0);
+  bot.phase=Math.random()*6; bot.gap=[3,4,5][i%3]; bot.nextAct=.5+i*.3;
+  bot.mood="idle"; bot.status="ok"; bot.blink=0; bot.tx=0; bot.ty=0; bot.surprise=0; bot.lookMate=0; bot.talkLeft=0;
+  scene.add(bot.root); return bot;
+});
+let selected=0, tracking=false, px=0, py=0, lastInput=0, holdAwake=true, lastMove=0, lx=0, ly=0;
+const pick=document.getElementById("pick");
+function renderUI(){
+  pick.innerHTML=bots.map((b,i)=>`<button data-i="${i}" class="${i===selected?"on":""}">${b.spec.name}</button>`).join("")+`<button data-act="talk">Hablar</button><button data-act="new">Nuevo</button>`;
+  const cur=(bots[selected].spec.color||"").toLowerCase();
+  document.getElementById("colors").innerHTML=PALETTE.map(c=>`<button data-color="${c}" style="background:${c}" class="${c.toLowerCase()===cur?"on":""}"></button>`).join("");
+}
+renderUI();
+pick.onclick=e=>{
+  const act=e.target.closest("[data-act]");
+  if(act){
+    holdAwake=true;
+    if(act.dataset.act==="talk"){ bots[selected].status="talk"; bots[selected].talkLeft=3.2; }
+    if(act.dataset.act==="new"){
+      const used=new Set(bots.map(b=>b.spec.color.toLowerCase()));
+      const col=PALETTE.find(c=>!used.has(c.toLowerCase()))||PALETTE[selected%PALETTE.length];
+      bots[selected].spec.color=col; bots[selected].shellMat.color.set(col);
+      bots.forEach(b=>{ if(b!==bots[selected]){ b.lookMate=2; b.mate=bots[selected]; }});
+      renderUI();
+    }
+    return;
+  }
+  const b=e.target.closest("[data-i]"); if(!b) return; selected=+b.dataset.i; holdAwake=true; renderUI();
+};
+document.getElementById("colors").onclick=e=>{
+  const sw=e.target.closest("[data-color]"); if(!sw) return;
+  bots[selected].spec.color=sw.dataset.color; bots[selected].shellMat.color.set(sw.dataset.color); holdAwake=true; renderUI();
+};
+function setPointer(x,y){
+  const now=performance.now(), dtm=Math.max(8,now-lastMove), speed=Math.hypot(x-lx,y-ly)/dtm;
+  if(speed>1.8&&lastMove) bots.forEach(b=>b.surprise=1);
+  lastMove=now; lx=x; ly=y; tracking=true; holdAwake=true;
+  px=(x/innerWidth)*2-1; py=-((y/innerHeight)*2-1);
+  bots.forEach(b=>{ if(b.status==="sleep") b.status="ok"; });
+}
+addEventListener("pointerdown",e=>setPointer(e.clientX,e.clientY),{passive:true});
+addEventListener("pointermove",e=>setPointer(e.clientX,e.clientY),{passive:true});
+addEventListener("pointerup",()=>tracking=false,{passive:true});
+function resize(){ renderer.setSize(innerWidth,innerHeight,false); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); }
+addEventListener("resize",resize); resize();
+const clock=new THREE.Clock();
+function loop(){
+  const dt=Math.min(clock.getDelta(),.05), t=clock.elapsedTime;
+  if(tracking||holdAwake){ lastInput=t; holdAwake=false; }
+  bots.forEach((bot,i)=>{
+    if(bot.talkLeft>0){ bot.talkLeft-=dt; if(bot.talkLeft<=0) bot.status="ok"; }
+    if(!tracking && t-lastInput>8) bot.status="sleep";
+    if(bot.lookMate>0) bot.lookMate-=dt;
+    const pulse=bot.status==="talk"? .5+.5*Math.sin(t*8):0;
+    if(bot.status==="talk") bot.visor.material.color.setRGB(.08+pulse*.15,.35+pulse*.4,.75);
+    else if(bot.status==="sleep") bot.visor.material.color.set("#0a0c12");
+    else bot.visor.material.color.set("#070b14");
+    bot.nextAct-=dt;
+    if(bot.nextAct<=0){ bot.mood=Math.random()<.5?"happy":"idle"; bot.blink=.0001; bot.nextAct=bot.gap; }
+    let close=0;
+    if(bot.blink>0){ bot.blink+=dt; close=Math.sin(Math.min(bot.blink/.28,1)*Math.PI); if(bot.blink>=.28) bot.blink=0; }
+    let sy=bot.status==="sleep"?.16: bot.surprise>0?1.4: bot.mood==="happy"?.4:1;
+    if(bot.surprise>0) bot.surprise-=dt;
+    if(close>0) sy=Math.max(.02,sy*(1-close));
+    bot.left.scale.set(1,sy,1); bot.right.scale.set(1,sy,1);
+    bot.left.visible=bot.right.visible=close<.82;
+    const row=i<3?0:1;
+    if(bot.lookMate>0&&bot.mate){
+      bot.tx+=(bot.mate.root.position.x-bot.root.position.x)*.02-bot.tx*.2;
+      bot.ty+=(bot.mate.root.position.y-bot.root.position.y)*.02-bot.ty*.2;
+    } else if(tracking && bot.status!=="sleep"){
+      const mid=innerHeight*.52, cy=(-py*.5+.5)*innerHeight;
+      let lookY=row===0?-0.12:0.12;
+      if(cy<mid-40) lookY=row===1?0.22:0.04;
+      else if(cy>mid+40) lookY=row===0?-0.22:-0.04;
+      bot.tx+=(px*0.16-bot.tx)*0.2; bot.ty+=(lookY-bot.ty)*0.2;
+    } else {
+      bot.tx+=(Math.sin(t*.65+bot.phase)*.06-bot.tx)*.04;
+      bot.ty+=(Math.sin(t*.4+bot.phase)*0.03-bot.ty)*.04;
+    }
+    bot.face.position.set(bot.tx, .07+bot.ty, .81);
+    bot.root.rotation.y=bot.tx*1.1; bot.root.rotation.x=-bot.ty*.9;
+    bot.root.position.z=i===selected?.25:0;
+  });
+  renderer.render(scene,camera); requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body></html>
