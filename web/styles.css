@@ -61,11 +61,7 @@ html, body {
 .eye-led {
   transform-box: fill-box;
   transform-origin: 50% 50%;
-  animation: blink 5s var(--blink, 0s) infinite;
-}
-@keyframes blink {
-  0%, 86%, 100% { transform: scaleY(1); }
-  88%, 91% { transform: scaleY(0.08); }
+  animation: none;
 }
 .palette { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
 .palette button {
