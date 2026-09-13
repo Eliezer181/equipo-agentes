@@ -184,11 +184,18 @@ def api_group_chat(group_id: str, payload: ChatIn):
     })
     replies = []
     last_error = None
+    import time
     for member in group["members"]:
-        try:
-            text = reply_messages(_group_llm_messages(member, group))
-        except Exception as exc:
-            last_error = exc
+        text = ""
+        for attempt in range(2):
+            try:
+                text = reply_messages(_group_llm_messages(member, group))
+                break
+            except Exception as exc:
+                last_error = exc
+                if attempt == 0:
+                    time.sleep(1)
+        if not text:
             continue
         if not text:
             continue
