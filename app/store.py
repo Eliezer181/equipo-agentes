@@ -11,9 +11,20 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 SPECIALISTS_PATH = DATA / "specialists.json"
 CHATS_DIR = DATA / "conversations"
+GROUPS_DIR = DATA / "groups"
 
 _lock = Lock()
 COLORS = ["#f97316", "#f59e0b", "#38bdf8", "#34d399", "#a78bfa", "#f472b6", "#fb7185"]
+
+DEFAULT_SPECIALISTS = [
+    {
+        "id": "asistente",
+        "name": "Asistente",
+        "title": "General",
+        "color": "#f97316",
+        "instructions": "Sos un asistente útil, directo y en español. Preguntá si falta contexto. No inventes datos. Si no sabés algo, decilo.",
+    }
+]
 
 
 def _now() -> str:
@@ -37,14 +48,17 @@ def _write_json(path: Path, payload) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def seed_defaults() -> None:
+    if not SPECIALISTS_PATH.exists():
+        _write_json(SPECIALISTS_PATH, DEFAULT_SPECIALISTS)
+
+
 def list_specialists() -> list[dict]:
     with _lock:
         items = _read_json(SPECIALISTS_PATH, [])
-    chats = {item["id"]: last_preview(item["id"]) for item in items}
     out = []
     for item in items:
-        preview = chats.get(item["id"]) or {}
-        out.append({**item, **preview})
+        out.append({**item, **last_preview(item["id"])})
     return out
 
 
@@ -80,6 +94,17 @@ def create_specialist(name: str, title: str, instructions: str) -> dict:
     return item
 
 
+def reorder_specialists(ids: list[str]) -> list[dict]:
+    with _lock:
+        items = _read_json(SPECIALISTS_PATH, [])
+        by_id = {item["id"]: item for item in items}
+        ordered = [by_id[i] for i in ids if i in by_id]
+        seen = set(ids)
+        ordered.extend(item for item in items if item["id"] not in seen)
+        _write_json(SPECIALISTS_PATH, ordered)
+    return list_specialists()
+
+
 def chat_path(specialist_id: str) -> Path:
     return CHATS_DIR / f"{specialist_id}.json"
 
@@ -105,27 +130,6 @@ def last_preview(specialist_id: str) -> dict:
     return {"last_message": text or "Sin mensajes", "last_at": last.get("at", "")}
 
 
-# ---------- Grupos ----------
-
-GROUPS_DIR = DATA / "groups"
-
-DEFAULT_SPECIALISTS = [
-    {
-        "id": "asistente",
-        "name": "Asistente",
-        "title": "General",
-        "color": "#f97316",
-        "instructions": "Sos un asistente útil, directo y en español. Preguntá si falta contexto. No inventes datos. Si no sabés algo, decilo.",
-    }
-]
-
-
-def seed_defaults() -> None:
-    """Crea el especialista base si arranca con un volumen vacío."""
-    if not SPECIALISTS_PATH.exists():
-        _write_json(SPECIALISTS_PATH, DEFAULT_SPECIALISTS)
-
-
 def group_path(group_id: str) -> Path:
     return GROUPS_DIR / f"{group_id}.json"
 
@@ -149,7 +153,12 @@ def list_groups() -> list[dict]:
                 "task": group.get("task", ""),
                 "leader": group.get("leader", ""),
                 "members": [
-                    {"id": m["id"], "name": m["name"], "color": m["color"]}
+                    {
+                        "id": m["id"],
+                        "name": m["name"],
+                        "title": m.get("title", ""),
+                        "color": m["color"],
+                    }
                     for m in group.get("members", [])
                 ],
                 "last_message": text or "Sin mensajes",
@@ -199,6 +208,7 @@ def create_group(name: str, task: str, leader: str, members: list[dict]) -> dict
                 {
                     "id": m["id"],
                     "name": m["name"],
+                    "title": m.get("title", ""),
                     "color": m.get("color", "#f97316"),
                     "instructions": m.get("instructions", ""),
                 }
@@ -207,4 +217,18 @@ def create_group(name: str, task: str, leader: str, members: list[dict]) -> dict
             "messages": [],
         }
         _write_json(group_path(group_id), group)
+    return group
+
+
+def remove_group_member(group_id: str, member_id: str) -> dict | None:
+    group = get_group(group_id)
+    if not group:
+        return None
+    members = [m for m in group.get("members", []) if m["id"] != member_id]
+    if len(members) == len(group.get("members", [])):
+        return group
+    if not members:
+        raise ValueError("El grupo no puede quedar vacío")
+    group["members"] = members
+    save_group(group)
     return group
