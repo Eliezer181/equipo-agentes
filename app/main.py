@@ -69,6 +69,7 @@ class ArchiveIn(BaseModel):
 
 class ChatIn(BaseModel):
     message: str = Field(min_length=1, max_length=8000)
+    reply_to: str | None = None
 
 
 class GroupIn(BaseModel):
@@ -86,14 +87,37 @@ class KickIn(BaseModel):
     member_id: str
 
 
+def mentioned_members(text: str, members: list[dict]) -> list[dict]:
+    low = (text or "").lower()
+    hits = []
+    for member in sorted(members, key=lambda m: -len(m.get("name") or "")):
+        name = (member.get("name") or "").strip()
+        if name and f"@{name.lower()}" in low:
+            hits.append(member)
+    return hits
+
+
+def speakers_for(group: dict, payload: ChatIn) -> list[dict]:
+    members = list(group.get("members") or [])
+    if payload.reply_to:
+        picked = [
+            m for m in members
+            if m.get("id") == payload.reply_to or (m.get("name") or "").lower() == payload.reply_to.lower()
+        ]
+        if picked:
+            return picked
+    tagged = mentioned_members(payload.message, members)
+    return tagged or members
+
+
 @app.get("/health")
 def health():
-    return {"ok": True, "release": "v8"}
+    return {"ok": True, "release": "v9"}
 
 
 @app.get("/api/version")
 def version():
-    return {"release": "v8", "gemini": _using_gemini(), "models": _models()}
+    return {"release": "v9", "gemini": _using_gemini(), "models": _models()}
 
 
 @app.get("/")
@@ -113,7 +137,10 @@ def api_list():
 
 @app.post("/api/specialists")
 def api_create(payload: SpecialistIn):
-    return create_specialist(payload.name, payload.title, payload.instructions, payload.color)
+    try:
+        return create_specialist(payload.name, payload.title, payload.instructions, payload.color)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.patch("/api/specialists/{specialist_id}")
@@ -194,6 +221,8 @@ def _group_system(member: dict, group: dict) -> str:
         "Reglas del grupo:",
         f"- El mensaje del usuario etiquetado como \"{leader}\" es del LÍDER del equipo: {leader}. Sus instrucciones tienen prioridad máxima.",
         f'- Si {leader} solo saluda, presentate como integrante del equipo.',
+        "- Si el líder te menciona con @" + member["name"] + ", la pregunta es para VOS. Respondé vos.",
+        "- Si el líder responde a uno de tus mensajes, contestá ese hilo.",
         "- Los mensajes prefijados con el nombre de otro integrante son de tus compañeros.",
         "- Respondé en español, breve y útil.",
     ])
@@ -275,16 +304,20 @@ def api_group_chat(group_id: str, payload: ChatIn):
     if not group.get("members"):
         raise HTTPException(status_code=400, detail="El grupo no tiene integrantes")
     user_text = payload.message.strip()
+    target = speakers_for(group, payload)
+    reply_name = target[0]["name"] if payload.reply_to and target else ""
     group.setdefault("messages", []).append({
         "sender": group["leader"],
         "role": "user",
         "content": user_text,
         "at": _now(),
+        "reply_to": payload.reply_to,
+        "reply_to_name": reply_name,
     })
     replies = []
     last_error = None
     import time
-    for member in group["members"]:
+    for member in target:
         text = ""
         for attempt in range(2):
             try:
@@ -299,10 +332,13 @@ def api_group_chat(group_id: str, payload: ChatIn):
         text = attach_media(user_text, text)
         msg = {
             "sender": member["name"],
+            "member_id": member["id"],
             "role": "assistant",
             "content": text,
             "at": _now(),
             "color": member.get("color", "#f97316"),
+            "reply_to": payload.reply_to,
+            "reply_to_name": reply_name,
         }
         group["messages"].append(msg)
         replies.append(msg)
