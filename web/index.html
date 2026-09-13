@@ -11,10 +11,6 @@
     .palette button{width:28px;height:28px;border-radius:50%;border:2px solid #111;padding:0;background:none;color:transparent}
     .palette button.on{outline:2px solid #fff}
     .buddy{overflow:visible}
-    .buddy.sleep{opacity:.82;filter:saturate(.7)}
-    .buddy.talk{filter:drop-shadow(0 0 6px #38bdf8)}
-    .row.archived{opacity:.62}
-    .chat-top{justify-content:flex-start}
     .chat-who{flex:1;min-width:0}
     #btn-agent-menu{margin-left:auto;flex-shrink:0;width:36px;height:36px;border:0;border-radius:50%;background:#1c1c1e;color:#f4f4f5;z-index:3;position:relative}
     .modal{z-index:40}
@@ -22,7 +18,20 @@
     .stack-actions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
     .stack-actions button{width:100%}
     .msg-img{display:block;max-width:100%;border-radius:12px;margin:8px 0 4px}
-    .msg-link{color:#93c5fd;text-decoration:underline}
+    .msg-link,.mention{color:#93c5fd}
+    .mention{font-weight:600}
+    .add-one,.mention-row{display:flex;align-items:center;gap:8px;width:100%;border:0;background:#1c1c1e;color:#f4f4f5;border-radius:10px;padding:8px 10px;text-align:left}
+    #add-member-list{display:flex;flex-direction:column;gap:6px}
+    .bubble.assistant{position:relative;padding-right:34px}
+    .reply-hit{position:absolute;top:8px;right:6px;width:28px;height:28px;border:0;border-radius:50%;background:#2c2c2e;color:#d4d4d8}
+    .reply-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#121214;border-top:1px solid #1c1c1e}
+    .reply-bar.hidden,.mention-box.hidden{display:none!important}
+    .reply-copy{min-width:0;flex:1}
+    .reply-copy b{display:block;font-size:12px;color:#93c5fd}
+    .reply-copy span{display:block;font-size:12px;color:#8e8e93;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mention-box{background:#121214;border-top:1px solid #1c1c1e;padding:6px;display:flex;flex-direction:column;gap:4px;max-height:160px;overflow:auto}
+    .quote{font-size:11px;color:#93c5fd;margin-bottom:4px}
+    .bubble.swipeable{transition:transform .12s ease}
   </style>
 </head>
 <body>
@@ -103,7 +112,7 @@
         <p class="section-label" style="padding-left:0">Integrantes</p>
         <div id="info-members" class="info-members"></div>
         <p class="section-label" style="padding-left:0">Agregar integrante</p>
-        <div class="add-member"></div>
+        <div id="add-member-list"></div>
         <div class="sheet-actions">
           <button type="button" id="btn-close-info" class="ghost">Cerrar</button>
           <button type="button" id="btn-delete-group" class="danger">Borrar grupo</button>
