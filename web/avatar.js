@@ -30,8 +30,7 @@ function uid(spec) {
 function buddyInner(spec) {
   const color = (spec && spec.color) || "#f3ead8";
   const id = uid(spec);
-  const delay = 2.8 + (hashId(spec && spec.id) % 5) * 0.55;
-  return `<g class="buddy-face" data-gap="${delay}">
+  return `<g class="buddy-face">
     <defs>
       <clipPath id="c${id}"><ellipse cx="12" cy="12.1" rx="6.35" ry="5.15"/></clipPath>
       <radialGradient id="h${id}" cx="32%" cy="24%" r="80%">
@@ -54,6 +53,10 @@ function buddyInner(spec) {
     </defs>
     <ellipse class="shell" cx="12" cy="12.15" rx="9.05" ry="9.25" fill="url(#h${id})" filter="url(#s${id})"/>
     <ellipse class="visor" cx="12" cy="12.1" rx="6.45" ry="5.25" fill="url(#v${id})"/>
+    <g class="brows" opacity="0">
+      <rect class="brow-l" x="7.3" y="9.55" width="3.4" height="0.62" rx="0.28" fill="#f8fafc" transform="rotate(26 9 9.86)"/>
+      <rect class="brow-r" x="13.3" y="9.55" width="3.4" height="0.62" rx="0.28" fill="#f8fafc" transform="rotate(-26 15 9.86)"/>
+    </g>
     <g clip-path="url(#c${id})">
       <g class="eyes">
         <ellipse class="eye-led eye-l" cx="9.35" cy="12.35" rx="1.55" ry="1.85" fill="url(#e${id})"/>
@@ -95,17 +98,18 @@ const BuddyLife = {
   wake() { this.last = performance.now(); },
 
   attach() {
-    document.querySelectorAll("svg.buddy.live").forEach((svg) => {
-      const id = svg.dataset.id || Math.random().toString(36).slice(2);
+    document.querySelectorAll("svg.buddy.live").forEach((svg, i) => {
       if (this.items.has(svg)) return;
-      const face = svg.querySelector(".buddy-face");
-      const eyes = svg.querySelector(".eyes");
-      const visor = svg.querySelector(".visor");
-      const gap = Number((face && face.dataset.gap) || 3.5);
+      const hid = hashId(svg.dataset.id || String(i));
       this.items.set(svg, {
-        svg, eyes, visor, face,
-        gap,
-        next: Math.random() * gap,
+        svg,
+        eyes: svg.querySelector(".eyes"),
+        visor: svg.querySelector(".visor"),
+        brows: svg.querySelector(".brows"),
+        blinkIn: 0.35 + (hid % 13) * 0.31 + (i * 0.47),
+        moodIn: 1.6 + (hid % 9) * 0.55 + (i * 0.73),
+        blinkGap: 2.4 + (hid % 5) * 0.7,
+        moodGap: 3.2 + (hid % 4) * 0.9,
         blink: 0,
         mood: "idle",
         status: "ok",
@@ -132,8 +136,7 @@ const BuddyLife = {
 
   talk(on) {
     this.items.forEach((b) => {
-      const inChat = b.svg.closest("#chat-dot");
-      if (inChat) b.status = on ? "talk" : "ok";
+      if (b.svg.closest("#chat-dot")) b.status = on ? "talk" : "ok";
     });
     this.wake();
   },
@@ -143,26 +146,32 @@ const BuddyLife = {
     const dt = Math.min(40, now - (this._t || now));
     this._t = now;
     const asleep = !this.tracking && now - this.last > 8000;
-    const avatars = [...this.items.values()];
-    avatars.forEach((b, i) => {
+    [...this.items.values()].forEach((b, i) => {
       if (!b.svg.isConnected) return;
       if (asleep && b.status !== "talk") b.status = "sleep";
-      b.next -= dt / 1000;
-      if (b.next <= 0) {
-        const r = Math.random();
-        b.mood = r < 0.35 ? "happy" : r < 0.55 ? "angry" : "idle";
+
+      b.blinkIn -= dt / 1000;
+      if (b.blinkIn <= 0 && b.blink === 0) {
         b.blink = 0.001;
-        b.next = b.gap;
+        b.blinkIn = b.blinkGap + Math.random() * 1.4;
       }
       if (b.blink > 0) {
         b.blink += dt / 1000;
-        if (b.blink > 0.28) b.blink = 0;
+        if (b.blink > 0.26) b.blink = 0;
       }
+
+      b.moodIn -= dt / 1000;
+      if (b.moodIn <= 0) {
+        const r = Math.random();
+        b.mood = r < 0.34 ? "happy" : r < 0.62 ? "angry" : "idle";
+        b.moodIn = b.moodGap + Math.random() * 1.6;
+      }
+
       if (b.surprise > 0) b.surprise -= dt;
       if (b.lookMate > 0) b.lookMate -= dt;
 
       let close = 0;
-      if (b.blink > 0) close = Math.sin(Math.min(b.blink / 0.28, 1) * Math.PI);
+      if (b.blink > 0) close = Math.sin(Math.min(b.blink / 0.26, 1) * Math.PI);
       if (b.status === "sleep") close = Math.max(close, 0.78);
 
       let lookX = 0, lookY = 0;
@@ -181,26 +190,27 @@ const BuddyLife = {
         else if (this.py < mid) lookY = cy > mid ? -0.7 : lookY;
         else lookY = cy < mid ? 0.7 : lookY;
       } else if (b.status !== "sleep") {
-        lookX = Math.sin(now / 900 + i) * 0.35;
+        lookX = Math.sin(now / 900 + i * 1.3) * 0.35;
         lookY = Math.sin(now / 1400 + i * 1.7) * 0.18;
       }
       b.tx += (Math.max(-1.1, Math.min(1.1, lookX)) - b.tx) * 0.18;
       b.ty += (Math.max(-0.7, Math.min(0.7, lookY)) - b.ty) * 0.18;
       if (b.eyes) b.eyes.setAttribute("transform", `translate(${b.tx} ${b.ty})`);
 
-      const leds = b.svg.querySelectorAll(".eye-led");
-      let sy = 1;
-      if (b.surprise > 0) sy = 1.35;
-      else if (b.mood === "happy" && close < 0.2) sy = 0.42;
-      else if (b.mood === "angry" && close < 0.2) sy = 0.55;
+      let sx = 1, sy = 1, rot = 0, fill = "";
+      if (b.surprise > 0) { sx = 1.25; sy = 1.35; }
+      else if (b.mood === "happy" && close < 0.25) { sx = 1.45; sy = 0.28; }
+      else if (b.mood === "angry" && close < 0.25) { sx = 1.08; sy = 0.48; rot = 26; fill = "#fecaca"; }
       sy = Math.max(0.08, sy * (1 - close));
-      leds.forEach((el, idx) => {
+
+      b.svg.querySelectorAll(".eye-led").forEach((el, idx) => {
         el.style.transformBox = "fill-box";
         el.style.transformOrigin = "50% 50%";
-        const rot = b.mood === "angry" && close < 0.2 ? (idx ? -22 : 22) : 0;
-        el.style.transform = `scale(1, ${sy}) rotate(${rot}deg)`;
-        el.style.fill = b.mood === "angry" && close < 0.2 ? "#fb7185" : "";
+        const r = rot ? (idx ? -rot : rot) : 0;
+        el.style.transform = `scale(${sx}, ${sy}) rotate(${r}deg)`;
+        el.style.fill = fill;
       });
+      if (b.brows) b.brows.setAttribute("opacity", b.mood === "angry" && close < 0.35 && b.status !== "sleep" ? "1" : "0");
 
       if (b.visor) {
         if (b.status === "talk") {
