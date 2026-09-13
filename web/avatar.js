@@ -19,16 +19,48 @@ function shapeOf(spec) {
   return SHAPES[hashId(spec && spec.id) % SHAPES.length];
 }
 
+function tint(hex, amt) {
+  const n = hex.replace("#", "");
+  const v = parseInt(n.length === 3 ? n.split("").map((c) => c + c).join("") : n, 16);
+  const r = Math.max(0, Math.min(255, ((v >> 16) & 255) + amt));
+  const g = Math.max(0, Math.min(255, ((v >> 8) & 255) + amt));
+  const b = Math.max(0, Math.min(255, (v & 255) + amt));
+  return `#${[r, g, b].map((x) => x.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function uid(spec) {
+  return String(spec && spec.id || "x").replace(/[^a-zA-Z0-9_-]/g, "") + hashId(spec && spec.id);
+}
+
 function buddyInner(spec) {
   const color = (spec && spec.color) || "#f97316";
   const shape = shapeOf(spec);
+  const id = uid(spec);
   const delay = (hashId(spec && spec.id) % 7) * 0.45;
   const wink = hashId(spec && spec.id) % 2 === 0 ? "wink-left" : "wink-right";
   return `<g class="buddy-face ${wink}" style="--blink:${delay}s">
-    <path fill="${color}" d="${BODY[shape]}"/>
-    <ellipse class="eye eye-l" cx="9.2" cy="11.2" rx="1.35" ry="1.7"/>
-    <ellipse class="eye eye-r" cx="14.8" cy="11.2" rx="1.35" ry="1.7"/>
-    <path class="mouth" d="M10 14.7c.7 1.1 3.3 1.1 4 0" fill="none" stroke="#171717" stroke-width="1.15" stroke-linecap="round"/>
+    <defs>
+      <radialGradient id="g${id}" cx="32%" cy="28%" r="78%">
+        <stop offset="0%" stop-color="${tint(color, 70)}"/>
+        <stop offset="42%" stop-color="${color}"/>
+        <stop offset="100%" stop-color="${tint(color, -55)}"/>
+      </radialGradient>
+      <filter id="s${id}" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="1.1" stdDeviation="0.7" flood-color="#000" flood-opacity=".45"/>
+      </filter>
+    </defs>
+    <path fill="${tint(color, -70)}" d="${BODY[shape]}" transform="translate(0 0.7)" opacity=".35"/>
+    <path fill="url(#g${id})" filter="url(#s${id})" d="${BODY[shape]}"/>
+    <ellipse fill="#fff" opacity=".28" cx="8.4" cy="7.6" rx="3.2" ry="2.1"/>
+    <g class="eyes">
+      <ellipse class="eye-white" cx="9.1" cy="11.15" rx="1.85" ry="2.15" fill="#fff"/>
+      <ellipse class="eye eye-l" cx="9.25" cy="11.35" rx="1.15" ry="1.45"/>
+      <circle cx="9.7" cy="10.7" r=".35" fill="#fff"/>
+      <ellipse class="eye-white" cx="14.9" cy="11.15" rx="1.85" ry="2.15" fill="#fff"/>
+      <ellipse class="eye eye-r" cx="14.75" cy="11.35" rx="1.15" ry="1.45"/>
+      <circle cx="15.2" cy="10.7" r=".35" fill="#fff"/>
+    </g>
+    <path class="mouth" d="M10.1 14.85c.7 1.25 3.1 1.25 3.8 0" fill="none" stroke="#3f1f14" stroke-width="1.05" stroke-linecap="round"/>
   </g>`;
 }
 
