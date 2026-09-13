@@ -1,0 +1,8 @@
+.venv
+venv
+.git
+.env
+__pycache__
+*.pyc
+data/conversations/*
+!data/conversations/.gitkeep

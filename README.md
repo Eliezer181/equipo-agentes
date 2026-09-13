@@ -1,56 +1,56 @@
 # Equipo de agentes
 
-Primera versión de un equipo de especialistas con interfaz de lista + chat.
+Equipo de especialistas con interfaz de lista + chat.
 Vos creás los especialistas con el botón `+`. El código vive acá; la clave de la API no.
 
-## Paso 1 — clonar
+## Publicar en Fly.io (para verlo en el celular)
+
+1. Entrá a [https://fly.io/dashboard](https://fly.io/dashboard) con la cuenta que ya conectaste.
+2. **Launch App** → conectá GitHub si no está → elegí el repo **Eliezer1817/equipo-agentes**.
+3. Si pide nombre de app, usá `equipo-agentes-eliezer` (tiene que ser único).
+4. Región sugerida: `gru` (São Paulo).
+5. En **Secrets** agregá:
+   - `XAI_API_KEY` = tu clave de [console.x.ai](https://console.x.ai)
+   - `MODEL` = `grok-4.3`
+6. Deploy.
+
+Cuando termine, el link va a ser:
+
+`https://equipo-agentes-eliezer.fly.dev`
+
+Si el nombre de la app cambió, Fly te muestra la URL final.
+
+Desde una PC también se puede:
+
+```bash
+fly launch --copy-config --yes
+fly secrets set XAI_API_KEY=xai-... MODEL=grok-4.3
+fly deploy
+```
+
+## Correr en local
 
 ```bash
 git clone https://github.com/Eliezer1817/equipo-agentes.git
 cd equipo-agentes
-```
-
-## Paso 2 — entorno
-
-```bash
 python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Editá `.env` y pegá tu clave de [console.x.ai](https://console.x.ai):
+En `.env`:
 
 ```
 XAI_API_KEY=xai-...
 MODEL=grok-4.3
 ```
 
-Si preferís otro modelo de la API de xAI, cambialo en `MODEL` (`grok-4.6`, `grok-4.3`, etc.).
-
-## Paso 3 — correr
-
 ```bash
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Abrí [http://127.0.0.1:8000](http://127.0.0.1:8000) en el teléfono (misma red) o en la computadora.
+## Notas
 
-## Qué hay hoy
-
-- Lista de especialistas, buscar y crear con `+`
-- Chat por especialista, con memoria en `data/conversations/`
-- Un especialista inicial (`Asistente`) para probar
-
-## Qué no hay todavía (siguientes pasos)
-
-- Computadora Linux 24/7 (VPS)
-- Navegador / tools reales
-- App de iPhone nativa
-- Grupos entre especialistas
-
-## Crear un especialista
-
-En la UI: `+` → nombre, cargo, instrucciones.
-
-También se puede editar `data/specialists.json`.
+- Sin `XAI_API_KEY` la interfaz abre, pero el chat falla.
+- Los chats se guardan en el disco de la máquina de Fly. Si se apaga y no hay volumen, se pueden perder. Eso lo afinamos después.
