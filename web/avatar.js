@@ -112,6 +112,8 @@ const BuddyLife = {
         moodGap: 3.2 + (hid % 4) * 0.9,
         blink: 0,
         mood: "idle",
+        angryUntil: 0,
+        taps: [],
         status: "ok",
         surprise: 0,
         tx: 0, ty: 0,
@@ -121,6 +123,21 @@ const BuddyLife = {
     [...this.items.keys()].forEach((svg) => {
       if (!svg.isConnected) this.items.delete(svg);
     });
+  },
+
+  poke(svg) {
+    const b = this.items.get(svg);
+    if (!b) return;
+    const now = performance.now();
+    b.taps = (b.taps || []).filter((t) => now - t < 1400);
+    b.taps.push(now);
+    b.status = "ok";
+    this.wake();
+    if (b.taps.length > 5) {
+      b.mood = "angry";
+      b.angryUntil = now + 4000;
+      b.taps = [];
+    }
   },
 
   lookAtNew(id) {
@@ -148,7 +165,7 @@ const BuddyLife = {
     const asleep = !this.tracking && now - this.last > 8000;
     [...this.items.values()].forEach((b, i) => {
       if (!b.svg.isConnected) return;
-      if (asleep && b.status !== "talk") b.status = "sleep";
+      if (asleep && b.status !== "talk" && b.mood !== "angry") b.status = "sleep";
 
       b.blinkIn -= dt / 1000;
       if (b.blinkIn <= 0 && b.blink === 0) {
@@ -160,10 +177,14 @@ const BuddyLife = {
         if (b.blink > 0.26) b.blink = 0;
       }
 
+      if (b.angryUntil && now > b.angryUntil) {
+        b.mood = "idle";
+        b.angryUntil = 0;
+      }
+
       b.moodIn -= dt / 1000;
-      if (b.moodIn <= 0) {
-        const r = Math.random();
-        b.mood = r < 0.34 ? "happy" : r < 0.62 ? "angry" : "idle";
+      if (b.moodIn <= 0 && b.mood !== "angry") {
+        b.mood = Math.random() < 0.4 ? "happy" : "idle";
         b.moodIn = b.moodGap + Math.random() * 1.6;
       }
 
@@ -198,7 +219,7 @@ const BuddyLife = {
       if (b.eyes) b.eyes.setAttribute("transform", `translate(${b.tx} ${b.ty})`);
 
       let sx = 1, sy = 1, rot = 0, fill = "";
-      if (b.surprise > 0) { sx = 1.25; sy = 1.35; }
+      if (b.surprise > 0 && b.mood !== "angry") { sx = 1.25; sy = 1.35; }
       else if (b.mood === "happy" && close < 0.25) { sx = 1.45; sy = 0.28; }
       else if (b.mood === "angry" && close < 0.25) { sx = 1.08; sy = 0.48; rot = 26; fill = "#fecaca"; }
       sy = Math.max(0.08, sy * (1 - close));
@@ -234,12 +255,19 @@ const BuddyLife = {
       const now = performance.now();
       const dtm = Math.max(8, now - this.lastMove);
       const speed = Math.hypot(x - this.lastX, y - this.lastY) / dtm;
-      if (speed > 1.7 && this.lastMove) this.items.forEach((b) => { b.surprise = 900; b.status = "ok"; });
+      if (speed > 1.7 && this.lastMove) this.items.forEach((b) => { b.surprise = 900; if (b.status === "sleep") b.status = "ok"; });
       this.lastMove = now; this.lastX = x; this.lastY = y;
       this.tracking = true; this.px = x; this.py = y; this.wake();
       this.items.forEach((b) => { if (b.status === "sleep") b.status = "ok"; });
     };
-    window.addEventListener("pointerdown", (e) => mark(e.clientX, e.clientY), { passive: true });
+    window.addEventListener("pointerdown", (e) => {
+      mark(e.clientX, e.clientY);
+      const svg = e.target.closest && e.target.closest("svg.buddy.live");
+      if (svg) {
+        this.poke(svg);
+        e.stopPropagation();
+      }
+    }, { passive: true });
     window.addEventListener("pointermove", (e) => mark(e.clientX, e.clientY), { passive: true });
     window.addEventListener("pointerup", () => { this.tracking = false; }, { passive: true });
     requestAnimationFrame((t) => this.tick(t));
