@@ -17,10 +17,10 @@ function setNotify(on) {
 
 function pingNotice(title, body) {
   if (!notifyOn()) return;
-  if (document.visibilityState === "visible" && current && current.type === "specialist" && current.name === title) return;
+  if (document.visibilityState === "visible" && document.getElementById("chat").classList.contains("active")) return;
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   try {
-    new Notification(title, { body: String(body || "").slice(0, 90), silent: false });
+    new Notification(title, { body: String(body || "").slice(0, 90) });
   } catch (_) {}
 }
 
@@ -47,7 +47,6 @@ document.getElementById("edit-palette").onclick = (e) => {
 };
 
 document.getElementById("btn-close-agent").onclick = () => agentModal.classList.add("hidden");
-
 document.getElementById("notify-toggle").onchange = (e) => setNotify(e.target.checked);
 
 const prevWho = document.getElementById("chat-who").onclick;
@@ -149,28 +148,23 @@ renderList = function (filter = "") {
   if (typeof attachBuddyLife === "function") attachBuddyLife();
 };
 
-const composer = document.getElementById("composer");
-composer.addEventListener("submit", () => {
-  const watching = current;
-  const wait = setInterval(() => {}, 999999);
-  setTimeout(() => clearInterval(wait), 0);
-});
-
 const _openChat = openChat;
 openChat = async function (id) {
   await _openChat(id);
-  document.getElementById("btn-agent-menu").classList.toggle("hidden", !(current && current.type === "specialist"));
+  document.getElementById("btn-agent-menu").classList.remove("hidden");
 };
 
-const origSubmit = composer.onsubmit;
-composer.addEventListener("submit", async () => {
-  if (!current || current.type !== "specialist") return;
-  const name = current.name;
-  setTimeout(() => {
-    const last = thread.querySelector(".bubble.assistant:last-child");
-    if (last) pingNotice(name, last.textContent);
-  }, 400);
-});
+new MutationObserver((muts) => {
+  if (!current) return;
+  for (const mut of muts) {
+    for (const node of mut.addedNodes) {
+      if (!(node instanceof HTMLElement)) continue;
+      if (!node.classList.contains("assistant")) continue;
+      const name = current.type === "group" ? (node.querySelector(".sender") || {}).textContent || current.name : current.name;
+      pingNotice(name, node.textContent);
+    }
+  }
+}).observe(thread, { childList: true });
 
 if (notifyOn() && "Notification" in window && Notification.permission === "default") {
   Notification.requestPermission();
