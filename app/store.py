@@ -14,7 +14,10 @@ CHATS_DIR = DATA / "conversations"
 GROUPS_DIR = DATA / "groups"
 
 _lock = Lock()
-COLORS = ["#f97316", "#f59e0b", "#38bdf8", "#34d399", "#a78bfa", "#f472b6", "#fb7185"]
+COLORS = [
+    "#f3ead8", "#f97316", "#38bdf8", "#34d399", "#a78bfa",
+    "#fb7185", "#facc15", "#22d3ee", "#818cf8", "#fb923c",
+]
 
 DEFAULT_SPECIALISTS = [
     {
@@ -69,7 +72,17 @@ def get_specialist(specialist_id: str) -> dict | None:
     return None
 
 
-def create_specialist(name: str, title: str, instructions: str) -> dict:
+def _next_color(items: list[dict], requested: str | None) -> str:
+    if requested and requested.lower() in {c.lower() for c in COLORS}:
+        return requested
+    used = {str(item.get("color", "")).lower() for item in items}
+    for color in COLORS:
+        if color.lower() not in used:
+            return color
+    return COLORS[len(items) % len(COLORS)]
+
+
+def create_specialist(name: str, title: str, instructions: str, color: str | None = None) -> dict:
     name = name.strip()
     if not name:
         raise ValueError("El nombre es obligatorio")
@@ -86,7 +99,7 @@ def create_specialist(name: str, title: str, instructions: str) -> dict:
             "id": specialist_id,
             "name": name,
             "title": (title or "Especialista").strip(),
-            "color": COLORS[len(items) % len(COLORS)],
+            "color": _next_color(items, color),
             "instructions": (instructions or "Sos un especialista útil y directo, en español.").strip(),
         }
         items.append(item)
