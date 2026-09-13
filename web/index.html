@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Equipo</title>
   <link rel="stylesheet" href="/static/styles.css?v=7" />
+  <style>.palette button{width:28px;height:28px;border-radius:50%;border:2px solid #111;padding:0;background:none;color:transparent}.palette button.on{outline:2px solid #fff}</style>
 </head>
 <body>
   <div id="app">
@@ -28,7 +29,6 @@
       <input id="search" class="search hidden" placeholder="Buscar" />
       <div id="list" class="list"></div>
     </section>
-
     <section id="chat" class="screen">
       <header class="top chat-top">
         <button type="button" id="btn-back" class="back">←</button>
@@ -46,7 +46,6 @@
         <button type="submit">Enviar</button>
       </form>
     </section>
-
     <div id="modal" class="modal hidden">
       <form id="create" class="sheet">
         <div class="grabber"></div>
@@ -65,7 +64,6 @@
         </div>
       </form>
     </div>
-
     <div id="group-modal" class="modal hidden">
       <form id="create-group" class="sheet">
         <div class="grabber"></div>
@@ -80,7 +78,6 @@
         </div>
       </form>
     </div>
-
     <div id="info-modal" class="modal hidden">
       <div class="sheet">
         <div class="grabber"></div>
@@ -97,5 +94,6 @@
   </div>
   <script src="/static/avatar.js?v=7"></script>
   <script src="/static/app.js?v=7"></script>
+  <script src="/static/color-ui.js?v=7"></script>
 </body>
 </html>
