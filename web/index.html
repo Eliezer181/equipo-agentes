@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Equipo</title>
-  <link rel="stylesheet" href="/static/styles.css?v=16" />
+  <link rel="stylesheet" href="/static/styles.css?v=17" />
   <style>
     .palette button{width:28px;height:28px;border-radius:50%;border:2px solid #111;padding:0}
     .palette button.on{outline:2px solid #fff}
@@ -21,8 +21,6 @@
     .mention{font-weight:600}
     .add-one,.mention-row{display:flex;align-items:center;gap:8px;width:100%;border:0;background:#1c1c1e;color:#f4f4f5;border-radius:10px;padding:10px;text-align:left}
     #add-member-list{display:flex;flex-direction:column;gap:6px;min-height:24px}
-    .bubble.assistant{position:relative;padding-right:36px}
-    .reply-hit{position:absolute;top:8px;right:6px;width:30px;height:30px;border:0;border-radius:50%;background:#2c2c2e;color:#93c5fd;font-size:16px;z-index:2}
     .reply-bar,.mention-box{flex-shrink:0;background:#121214;border-top:1px solid #1c1c1e}
     .reply-bar{display:flex;align-items:center;gap:10px;padding:8px 12px}
     .reply-bar.hidden,.mention-box.hidden{display:none!important}
@@ -31,6 +29,7 @@
     .reply-copy span{display:block;font-size:12px;color:#8e8e93;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .mention-box{max-height:168px;overflow:auto;padding:6px;display:flex;flex-direction:column;gap:4px}
     .quote{font-size:11px;color:#93c5fd;margin-bottom:4px}
+    .bubble.swipeable{transition:transform .12s ease;touch-action:pan-y}
     #btn-at{width:36px;height:36px;border:0;border-radius:50%;background:#1c1c1e;color:#f4f4f5;font-weight:700;flex-shrink:0}
   </style>
 </head>
@@ -141,9 +140,9 @@
       </form>
     </div>
   </div>
-  <script src="/static/avatar.js?v=16"></script>
-  <script src="/static/app.js?v=16"></script>
-  <script src="/static/color-ui.js?v=16"></script>
-  <script src="/static/group-ui.js?v=16"></script>
+  <script src="/static/avatar.js?v=17"></script>
+  <script src="/static/app.js?v=17"></script>
+  <script src="/static/color-ui.js?v=17"></script>
+  <script src="/static/group-ui.js?v=17"></script>
 </body>
 </html>
