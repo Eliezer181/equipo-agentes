@@ -72,7 +72,7 @@ def reply(instructions: str, history: list[dict]) -> str:
         except Exception as exc:
             last_error = exc
             text = str(exc).lower()
-            if "model not found" in text or "invalid-argument" in text or "not found" in text:
+            if "model not found" in text or "invalid-argument" in text or "not found" in text or "does not exist" in text:
                 continue
             raise
     raise last_error or RuntimeError("No se pudo usar ningún modelo de Gemini")
