@@ -52,6 +52,14 @@ def _write_json(path: Path, payload) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def _name_taken(items: list[dict], name: str, exclude_id: str | None = None) -> bool:
+    key = name.strip().lower()
+    return any(
+        (item.get("name") or "").strip().lower() == key and item.get("id") != exclude_id
+        for item in items
+    )
+
+
 def seed_defaults() -> None:
     if not SPECIALISTS_PATH.exists():
         _write_json(SPECIALISTS_PATH, DEFAULT_SPECIALISTS)
@@ -93,6 +101,8 @@ def create_specialist(name: str, title: str, instructions: str, color: str | Non
         raise ValueError("El nombre es obligatorio")
     with _lock:
         items = _read_json(SPECIALISTS_PATH, [])
+        if _name_taken(items, name):
+            raise ValueError("Ya existe un agente con ese nombre")
         base = slugify(name)
         specialist_id = base
         n = 2
@@ -124,6 +134,8 @@ def update_specialist(specialist_id: str, name: str | None, title: str | None, i
                 name = name.strip()
                 if not name:
                     raise ValueError("El nombre es obligatorio")
+                if _name_taken(items, name, specialist_id):
+                    raise ValueError("Ya existe un agente con ese nombre")
                 item["name"] = name
             if title is not None:
                 item["title"] = title.strip() or item.get("title", "Especialista")
