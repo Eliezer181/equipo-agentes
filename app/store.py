@@ -25,6 +25,7 @@ DEFAULT_SPECIALISTS = [
         "name": "Asistente",
         "title": "General",
         "color": "#f97316",
+        "archived": False,
         "instructions": "Sos un asistente útil, directo y en español. Preguntá si falta contexto. No inventes datos. Si no sabés algo, decilo.",
     }
 ]
@@ -61,7 +62,11 @@ def list_specialists() -> list[dict]:
         items = _read_json(SPECIALISTS_PATH, [])
     out = []
     for item in items:
-        out.append({**item, **last_preview(item["id"])})
+        out.append({
+            **item,
+            "archived": bool(item.get("archived", False)),
+            **last_preview(item["id"]),
+        })
     return out
 
 
@@ -100,11 +105,86 @@ def create_specialist(name: str, title: str, instructions: str, color: str | Non
             "name": name,
             "title": (title or "Especialista").strip(),
             "color": _next_color(items, color),
+            "archived": False,
             "instructions": (instructions or "Sos un especialista útil y directo, en español.").strip(),
         }
         items.append(item)
         _write_json(SPECIALISTS_PATH, items)
     return item
+
+
+def update_specialist(specialist_id: str, name: str | None, title: str | None, instructions: str | None, color: str | None) -> dict | None:
+    with _lock:
+        items = _read_json(SPECIALISTS_PATH, [])
+        found = None
+        for item in items:
+            if item["id"] != specialist_id:
+                continue
+            if name is not None:
+                name = name.strip()
+                if not name:
+                    raise ValueError("El nombre es obligatorio")
+                item["name"] = name
+            if title is not None:
+                item["title"] = title.strip() or item.get("title", "Especialista")
+            if instructions is not None:
+                item["instructions"] = instructions.strip()
+            if color and color.lower() in {c.lower() for c in COLORS}:
+                item["color"] = color
+            found = item
+            break
+        if not found:
+            return None
+        _write_json(SPECIALISTS_PATH, items)
+    return get_specialist(specialist_id)
+
+
+def set_archived(specialist_id: str, archived: bool) -> dict | None:
+    with _lock:
+        items = _read_json(SPECIALISTS_PATH, [])
+        found = None
+        for item in items:
+            if item["id"] == specialist_id:
+                item["archived"] = bool(archived)
+                found = item
+                break
+        if not found:
+            return None
+        _write_json(SPECIALISTS_PATH, items)
+    return get_specialist(specialist_id)
+
+
+def delete_specialist(specialist_id: str) -> bool:
+    with _lock:
+        items = _read_json(SPECIALISTS_PATH, [])
+        kept = [item for item in items if item["id"] != specialist_id]
+        if len(kept) == len(items):
+            return False
+        _write_json(SPECIALISTS_PATH, kept)
+        path = chat_path(specialist_id)
+        if path.exists():
+            path.unlink()
+    GROUPS_DIR.mkdir(parents=True, exist_ok=True)
+    for path in GROUPS_DIR.glob("*.json"):
+        group = _read_json(path, None)
+        if not group:
+            continue
+        members = [m for m in group.get("members", []) if m.get("id") != specialist_id]
+        if len(members) == len(group.get("members", [])):
+            continue
+        if not members:
+            path.unlink()
+            continue
+        group["members"] = members
+        _write_json(path, group)
+    return True
+
+
+def clear_messages(specialist_id: str) -> bool:
+    if not get_specialist(specialist_id):
+        return False
+    save_messages(specialist_id, [])
+    return True
 
 
 def reorder_specialists(ids: list[str]) -> list[dict]:
