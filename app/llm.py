@@ -42,19 +42,23 @@ def client() -> OpenAI:
 
 
 def _models() -> list[str]:
+    """Orden de modelos a probar.
+
+    Los modelos Gemini van primero: siguen mejor las instrucciones de
+    personalidad en chats grupales (varios agentes con identidades propias).
+    Un MODEL configurado manualmente (por ej. un modelo chico/gratuito como
+    gpt-oss-20b) queda como último fallback, no como primera opción, porque
+    los modelos chicos tienden a confundir identidades entre agentes."""
     configured = os.getenv("MODEL", "").strip()
     if not _using_gemini():
         return [configured or "grok-4.3"]
-    out: list[str] = []
-    if configured and "2.5" not in configured and "2.0" not in configured:
+    out: list[str] = list(GEMINI_MODELS)
+    if configured and configured not in out:
         out.append(configured)
-    for name in GEMINI_MODELS:
-        if name not in out:
-            out.append(name)
     return out
 
 
-def reply_messages(messages: list[dict]) -> str:
+def reply_messages(messages: list[dict], temperature: float = 0.4) -> str:
     """Prueba los modelos en orden hasta que uno responda."""
     last_error = None
     api = client()
@@ -63,7 +67,7 @@ def reply_messages(messages: list[dict]) -> str:
             response = api.chat.completions.create(
                 model=model,
                 messages=messages,
-                temperature=0.4,
+                temperature=temperature,
             )
             return (response.choices[0].message.content or "").strip()
         except Exception as exc:

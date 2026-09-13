@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -206,12 +207,28 @@ def api_chat(specialist_id: str, payload: ChatIn):
     return {"reply": text, "messages": messages}
 
 
-def _clean_reply(text: str, name: str) -> str:
+def _clean_reply(text: str, name: str, other_names: list[str] | None = None) -> str:
+    """Limpia la respuesta y corrige que el agente se identifique como otro.
+
+    Antes solo se filtraba la frase "soy el asistente" cuando el agente no se
+    llamaba Asistente. Ahora se generaliza a CUALQUIER compañero del grupo, y
+    también se cubre la palabra genérica "asistente" cuando ese no es el
+    nombre real del agente (causa más común de confusión: un agente llamado
+    Juan diciendo "soy el asistente del equipo" porque usó la palabra como
+    sustantivo común, no como nombre propio)."""
     out = (text or "").strip().replace("**", "")
-    if name.lower() != "asistente" and "soy el asistente" in out.lower():
-        lines = [ln for ln in out.splitlines() if "soy el asistente" not in ln.lower()]
-        out = "\n".join(lines).strip() or f"Soy {name}."
-    return out
+    guard = {n.strip().lower() for n in (other_names or []) if n.strip()}
+    guard.discard(name.strip().lower())
+    if name.strip().lower() != "asistente":
+        guard.add("asistente")
+    if guard:
+        pattern = re.compile(
+            r"\bsoy\s+(el\s+|la\s+)?(" + "|".join(re.escape(w) for w in guard) + r")\b",
+            re.IGNORECASE,
+        )
+        lines = [ln for ln in out.splitlines() if not pattern.search(ln)]
+        out = "\n".join(lines).strip()
+    return out or f"Soy {name}."
 
 
 def _group_system(member: dict, group: dict, turn: dict | None = None) -> str:
@@ -222,17 +239,27 @@ def _group_system(member: dict, group: dict, turn: dict | None = None) -> str:
     leader = group["leader"]
     task = group["task"] or "lo que pida el líder"
     forbidden = ", ".join(mates) if mates else "ningún otro nombre"
+    self_word_guard = (
+        None
+        if name.strip().lower() == "asistente"
+        else (
+            f"Nunca digas 'soy el asistente' ni uses la palabra 'asistente' para "
+            f"hablar de vos mismo: tu nombre es {name}, usá siempre ese nombre "
+            "propio, aunque tu rol sea ayudar."
+        )
+    )
     lines = [
-        f"SOS {name}. Rol: {role}.",
-        "Prohibido decir que sos otra persona.",
-        f"Prohibido presentarte como {forbidden}." if mates else "",
+        f"SOS {name} y SOLO {name}. Rol: {role}. Tu identidad no cambia nunca en esta conversación, sin importar quién te escriba.",
+        f"Prohibido decir que sos otra persona.",
+        f"Prohibido presentarte como {forbidden} o usar sus nombres para hablar de vos." if mates else "",
+        self_word_guard,
         member.get("instructions") or "",
         "",
         f'Grupo "{group["name"]}". Tarea: {task}.',
         f"El humano se llama {leader}. Tus compañeros: {mates_txt}.",
         "",
         "Cómo hablar:",
-        f"- Todo lo que escribas es de {name}.",
+        f"- Todo lo que escribas es de {name}, en primera persona.",
         f"- Si te pedís presentar, empezá con: Soy {name}, {role}.",
         f"- Le hablás a {leader}, excepto si te pide saludar o responderle a un compañero.",
         "- Si un compañero te nombra con @, contestale a ese compañero, breve.",
@@ -280,10 +307,14 @@ def _group_llm_messages(member: dict, group: dict, turn: dict | None = None) -> 
 def _speak(member: dict, group: dict, turn: dict | None = None) -> str:
     import time
     last_error = None
+    other_names = [m["name"] for m in group.get("members", []) if m["id"] != member["id"]]
     for attempt in range(2):
         try:
-            text = reply_messages(_group_llm_messages(member, group, turn))
-            return _clean_reply(text, member["name"])
+            # Temperatura baja en chats grupales: menos creatividad, más apego
+            # a las instrucciones de identidad (evita que un agente "derive"
+            # hacia el nombre o el rol de otro compañero).
+            text = reply_messages(_group_llm_messages(member, group, turn), temperature=0.2)
+            return _clean_reply(text, member["name"], other_names)
         except Exception as exc:
             last_error = exc
             if attempt == 0:
