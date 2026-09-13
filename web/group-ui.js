@@ -30,25 +30,24 @@
   window.groupBubble = function (m) {
     const quote = m.reply_to_name ? '<div class="quote">↪ ' + escapeHtml(m.reply_to_name) + '</div>' : "";
     if (m.role === "user") {
-      return '<div class="bubble user">' + quote + '<div class="sender user-sender">' + escapeHtml((current && current.leader) || "Líder") + '</div>' + rich(m.content) + '</div>';
+      return '<div class="bubble user swipeable" data-sender="' + escapeHtml((current && current.leader) || "vos") + '">' + quote + '<div class="sender user-sender">' + escapeHtml((current && current.leader) || "Líder") + '</div>' + rich(m.content) + '</div>';
     }
     const color = m.color || "#f97316";
     const sender = m.sender || "";
     const mid = m.member_id || "";
     return '<div class="bubble assistant swipeable" data-sender="' + escapeHtml(sender) + '" data-member="' + escapeHtml(mid) + '">' +
-      '<button type="button" class="reply-hit" data-reply="1">↩</button>' +
       quote + '<div class="sender" style="color:' + color + '">' + escapeHtml(sender) + '</div>' + rich(m.content) +
       '</div>';
   };
 
-  const prevRender = renderThread;
   renderThread = function (messages) {
     if (!current) return;
     if (current.type === "group") {
       thread.innerHTML = (messages || []).map(window.groupBubble).join("");
     } else {
       thread.innerHTML = (messages || []).map(function (x) {
-        return '<div class="bubble ' + x.role + '">' + rich(x.content) + '</div>';
+        const who = x.role === "user" ? "vos" : (current.name || "agente");
+        return '<div class="bubble ' + x.role + ' swipeable" data-sender="' + escapeHtml(who) + '" data-member="' + escapeHtml(current.id || "") + '">' + rich(x.content) + '</div>';
       }).join("");
     }
     thread.scrollTop = thread.scrollHeight;
@@ -78,13 +77,14 @@
 
   function setReply(memberId, sender, preview) {
     bar();
-    replyTarget = memberId ? { member_id: memberId, sender: sender } : null;
+    var quote = String(preview || "").replace(/\s+/g, " ").trim();
+    replyTarget = (memberId || sender) ? { member_id: memberId || "", sender: sender || "", quote: quote } : null;
     if (!replyTarget) {
       bar().classList.add("hidden");
       return;
     }
-    document.getElementById("reply-who").textContent = "Respondiendo a " + (sender || "agente");
-    document.getElementById("reply-preview").textContent = String(preview || "").replace(/\s+/g, " ").slice(0, 80);
+    document.getElementById("reply-who").textContent = "Respondiendo a " + (sender || "ese mensaje");
+    document.getElementById("reply-preview").textContent = quote.slice(0, 80);
     bar().classList.remove("hidden");
     input.focus();
   }
@@ -94,7 +94,9 @@
     if (bubble.getAttribute("data-member")) return bubble.getAttribute("data-member");
     var sender = bubble.getAttribute("data-sender");
     var hit = members().filter(function (m) { return m.name === sender; })[0];
-    return hit ? hit.id : "";
+    if (hit) return hit.id;
+    if (current && current.type === "specialist") return current.id || "";
+    return "";
   }
 
   function openMentions(filter) {
@@ -177,12 +179,6 @@
       insertMention(mention.getAttribute("data-mention"));
       return;
     }
-    var reply = e.target.closest("[data-reply]");
-    if (reply) {
-      var bubble = reply.closest(".bubble.assistant");
-      if (bubble) setReply(idFromBubble(bubble), bubble.getAttribute("data-sender"), bubble.textContent);
-      return;
-    }
     var atBtn = e.target.closest("#btn-at");
     if (atBtn) {
       if (input.value.slice(-1) !== "@") input.value += (input.value && !/\s$/.test(input.value) ? " @" : "@");
@@ -203,8 +199,8 @@
 
   var swipe = null;
   thread.addEventListener("touchstart", function (e) {
-    var bubble = e.target.closest(".bubble.assistant.swipeable");
-    if (!bubble || !current || current.type !== "group") return;
+    var bubble = e.target.closest(".bubble.swipeable");
+    if (!bubble || !current) return;
     var t = e.changedTouches[0];
     swipe = { bubble: bubble, x: t.clientX, y: t.clientY, dx: 0 };
   }, { passive: true });
@@ -233,13 +229,18 @@
   var form = document.getElementById("composer");
   form.addEventListener("submit", function () {
     hideMentions();
-    if (replyTarget) form.dataset.replyTo = replyTarget.member_id;
-    else delete form.dataset.replyTo;
-    form.dataset.replyName = (replyTarget && replyTarget.sender) || "";
+    if (replyTarget) {
+      form.dataset.replyTo = replyTarget.member_id || "";
+      form.dataset.replyName = replyTarget.sender || "";
+      form.dataset.replyQuote = replyTarget.quote || "";
+    } else {
+      delete form.dataset.replyTo;
+      delete form.dataset.replyName;
+      delete form.dataset.replyQuote;
+    }
     setReply(null);
   }, true);
 
-  var oldSubmit = form.onsubmit;
   form.onsubmit = async function (e) {
     e.preventDefault();
     if (!current) return;
@@ -249,14 +250,20 @@
     hideMentions();
     var replyTo = form.dataset.replyTo || "";
     var replyName = form.dataset.replyName || "";
+    var replyQuote = form.dataset.replyQuote || "";
     delete form.dataset.replyTo;
     delete form.dataset.replyName;
+    delete form.dataset.replyQuote;
+    var sendText = message;
+    if (current.type !== "group" && replyQuote) {
+      sendText = '(Respondiendo a: "' + replyQuote.slice(0, 180) + '")\n\n' + message;
+    }
     var url = current.type === "group" ? "/api/groups/" + current.id + "/chat" : "/api/specialists/" + current.id + "/chat";
-    var body = { message: message };
-    if (replyTo) body.reply_to = replyTo;
+    var body = { message: sendText };
+    if (current.type === "group" && replyTo) body.reply_to = replyTo;
     thread.insertAdjacentHTML("beforeend", current.type === "group"
       ? window.groupBubble({ role: "user", content: message, reply_to_name: replyName })
-      : '<div class="bubble user">' + escapeHtml(message) + '</div>');
+      : '<div class="bubble user swipeable">' + (replyName ? '<div class="quote">↪ ' + escapeHtml(replyName) + '</div>' : '') + escapeHtml(message) + '</div>');
     if (current.type === "group") {
       thread.insertAdjacentHTML("beforeend", '<div class="bubble assistant thinking" id="thinking"><div class="sender">Escribiendo…</div></div>');
     }
