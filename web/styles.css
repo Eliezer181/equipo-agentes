@@ -56,10 +56,24 @@ html, body {
   border: 0; background: transparent; color: inherit; text-align: left;
   padding: 0; min-width: 0; width: 100%;
 }
-.dot {
-  width: 40px; height: 40px; border-radius: 50%;
-  display: grid; place-items: center; font-weight: 700; color: #111; flex-shrink: 0;
-  font-size: 15px;
+.buddy-slot { width: 42px; height: 42px; flex-shrink: 0; }
+.buddy { display: block; overflow: visible; flex-shrink: 0; }
+.eye {
+  fill: #171717;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: blink 5s var(--blink, 0s) infinite;
+}
+.wink-left .eye-l, .wink-right .eye-r {
+  animation: blink 5s var(--blink, 0s) infinite, wink 7.5s var(--blink, 0s) infinite;
+}
+@keyframes blink {
+  0%, 86%, 100% { transform: scaleY(1); }
+  88%, 91% { transform: scaleY(0.08); }
+}
+@keyframes wink {
+  0%, 38%, 46%, 100% { transform: scaleY(1); }
+  41%, 43% { transform: scaleY(0.08); }
 }
 .row .name {
   font-size: 15px; font-weight: 600;
@@ -137,10 +151,6 @@ html, body {
 .danger { background: #3b1515 !important; color: #fca5a5 !important; }
 .hint { font-size: 13px; color: var(--muted); padding: 0 16px 12px; line-height: 1.45; }
 .hint-inline { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.4; }
-.dot-group {
-  background: linear-gradient(135deg, #6366f1, #22d3ee) !important;
-  font-size: 11px; font-weight: 600; color: #fff !important;
-}
 .badge-group { background: rgba(99,102,241,.18); color: #a5b4fc; }
 .sender { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
 .user-sender { color: rgba(255,255,255,.75); }
@@ -154,7 +164,6 @@ html, body {
   display: flex; align-items: center; gap: 8px; padding: 8px;
   border-radius: 8px; font-size: 14px;
 }
-.dot.mini { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .info-task { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
 .info-members { display: flex; flex-direction: column; gap: 2px; }
 .info-row {
