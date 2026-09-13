@@ -11,9 +11,11 @@ from pydantic import BaseModel, Field
 from app.llm import _models, _using_gemini, reply, reply_messages
 from app.store import (
     _now,
+    clear_messages,
     create_group,
     create_specialist,
     delete_group,
+    delete_specialist,
     get_group,
     get_specialist,
     list_groups,
@@ -24,6 +26,8 @@ from app.store import (
     save_group,
     save_messages,
     seed_defaults,
+    set_archived,
+    update_specialist,
 )
 
 load_dotenv()
@@ -43,6 +47,17 @@ class SpecialistIn(BaseModel):
     title: str = Field(default="Especialista", max_length=40)
     instructions: str = Field(default="", max_length=4000)
     color: str | None = Field(default=None, max_length=16)
+
+
+class SpecialistPatch(BaseModel):
+    name: str | None = Field(default=None, max_length=40)
+    title: str | None = Field(default=None, max_length=40)
+    instructions: str | None = Field(default=None, max_length=4000)
+    color: str | None = Field(default=None, max_length=16)
+
+
+class ArchiveIn(BaseModel):
+    archived: bool = True
 
 
 class ChatIn(BaseModel):
@@ -66,12 +81,12 @@ class KickIn(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "release": "v6"}
+    return {"ok": True, "release": "v7"}
 
 
 @app.get("/api/version")
 def version():
-    return {"release": "v6", "gemini": _using_gemini(), "models": _models()}
+    return {"release": "v7", "gemini": _using_gemini(), "models": _models()}
 
 
 @app.get("/")
@@ -92,6 +107,39 @@ def api_list():
 @app.post("/api/specialists")
 def api_create(payload: SpecialistIn):
     return create_specialist(payload.name, payload.title, payload.instructions, payload.color)
+
+
+@app.patch("/api/specialists/{specialist_id}")
+def api_update(specialist_id: str, payload: SpecialistPatch):
+    try:
+        item = update_specialist(specialist_id, payload.name, payload.title, payload.instructions, payload.color)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not item:
+        raise HTTPException(status_code=404, detail="No existe ese especialista")
+    return item
+
+
+@app.post("/api/specialists/{specialist_id}/archive")
+def api_archive(specialist_id: str, payload: ArchiveIn):
+    item = set_archived(specialist_id, payload.archived)
+    if not item:
+        raise HTTPException(status_code=404, detail="No existe ese especialista")
+    return item
+
+
+@app.delete("/api/specialists/{specialist_id}")
+def api_delete(specialist_id: str):
+    if not delete_specialist(specialist_id):
+        raise HTTPException(status_code=404, detail="No existe ese especialista")
+    return {"ok": True}
+
+
+@app.delete("/api/specialists/{specialist_id}/messages")
+def api_clear(specialist_id: str):
+    if not clear_messages(specialist_id):
+        raise HTTPException(status_code=404, detail="No existe ese especialista")
+    return {"ok": True, "messages": []}
 
 
 @app.post("/api/specialists/reorder")
