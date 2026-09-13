@@ -58,23 +58,20 @@ html, body {
 }
 .buddy-slot { width: 42px; height: 42px; flex-shrink: 0; }
 .buddy { display: block; overflow: visible; flex-shrink: 0; }
-.eye, .eye-white {
+.eye-led {
   transform-box: fill-box;
   transform-origin: 50% 50%;
   animation: blink 5s var(--blink, 0s) infinite;
-}
-.eye { fill: #171717; }
-.wink-left .eye-l, .wink-right .eye-r {
-  animation: blink 5s var(--blink, 0s) infinite, wink 7.5s var(--blink, 0s) infinite;
 }
 @keyframes blink {
   0%, 86%, 100% { transform: scaleY(1); }
   88%, 91% { transform: scaleY(0.08); }
 }
-@keyframes wink {
-  0%, 38%, 46%, 100% { transform: scaleY(1); }
-  41%, 43% { transform: scaleY(0.08); }
+.palette { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
+.palette button {
+  width: 28px; height: 28px; border-radius: 50%; border: 2px solid #111; padding: 0;
 }
+.palette button.on { outline: 2px solid #fff; }
 .row .name {
   font-size: 15px; font-weight: 600;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
