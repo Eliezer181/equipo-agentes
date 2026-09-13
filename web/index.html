@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Equipo</title>
-  <link rel="stylesheet" href="/static/styles.css?v=14" />
+  <link rel="stylesheet" href="/static/styles.css?v=15" />
   <style>
     .palette button{width:28px;height:28px;border-radius:50%;border:2px solid #111;padding:0;background:none;color:transparent}
     .palette button.on{outline:2px solid #fff}
@@ -23,9 +23,6 @@
     .stack-actions button{width:100%}
     .msg-img{display:block;max-width:100%;border-radius:12px;margin:8px 0 4px}
     .msg-link{color:#93c5fd;text-decoration:underline}
-    .add-member{display:flex;gap:8px;align-items:center}
-    .add-member select{flex:1;min-width:0;border:0;border-radius:11px;padding:10px 12px;background:#1c1c1e;color:#f4f4f5;font-size:16px}
-    .add-member button{flex-shrink:0}
   </style>
 </head>
 <body>
@@ -106,10 +103,7 @@
         <p class="section-label" style="padding-left:0">Integrantes</p>
         <div id="info-members" class="info-members"></div>
         <p class="section-label" style="padding-left:0">Agregar integrante</p>
-        <div class="add-member">
-          <select id="add-member-select"></select>
-          <button type="button" id="btn-add-member">Agregar</button>
-        </div>
+        <div class="add-member"></div>
         <div class="sheet-actions">
           <button type="button" id="btn-close-info" class="ghost">Cerrar</button>
           <button type="button" id="btn-delete-group" class="danger">Borrar grupo</button>
@@ -138,10 +132,10 @@
       </form>
     </div>
   </div>
-  <script src="/static/avatar.js?v=14"></script>
-  <script src="/static/app.js?v=14"></script>
-  <script src="/static/color-ui.js?v=14"></script>
-  <script src="/static/media-ui.js?v=14"></script>
-  <script src="/static/reply-ui.js?v=14"></script>
+  <script src="/static/avatar.js?v=15"></script>
+  <script src="/static/app.js?v=15"></script>
+  <script src="/static/color-ui.js?v=15"></script>
+  <script src="/static/media-ui.js?v=15"></script>
+  <script src="/static/reply-ui.js?v=15"></script>
 </body>
 </html>
