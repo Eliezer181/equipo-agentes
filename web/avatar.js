@@ -44,9 +44,9 @@ function buddyInner(spec) {
         <stop offset="100%" stop-color="#05070c"/>
       </radialGradient>
       <radialGradient id="e${id}" cx="30%" cy="28%" r="72%">
-        <stop offset="0%" stop-color="#f0f9ff"/>
-        <stop offset="40%" stop-color="#38bdf8"/>
-        <stop offset="100%" stop-color="#075985"/>
+        <stop offset="0%" stop-color="#ffffff"/>
+        <stop offset="55%" stop-color="#f4f4f5"/>
+        <stop offset="100%" stop-color="#d4d4d8"/>
       </radialGradient>
       <filter id="s${id}" x="-25%" y="-25%" width="150%" height="150%">
         <feDropShadow dx="0" dy="1.1" stdDeviation="0.8" flood-color="#000" flood-opacity=".45"/>
