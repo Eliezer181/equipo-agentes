@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Equipo</title>
-  <link rel="stylesheet" href="/static/styles.css?v=11" />
+  <link rel="stylesheet" href="/static/styles.css?v=12" />
   <style>
     .palette button{width:28px;height:28px;border-radius:50%;border:2px solid #111;padding:0;background:none;color:transparent}
     .palette button.on{outline:2px solid #fff}
@@ -15,7 +15,9 @@
     .buddy.talk{filter:drop-shadow(0 0 6px #38bdf8)}
     .row.archived{opacity:.62}
     .chat-top{justify-content:flex-start}
-    #btn-agent-menu{margin-left:auto;width:36px;height:36px;border:0;border-radius:50%;background:#1c1c1e;color:#f4f4f5}
+    .chat-who{flex:1;min-width:0}
+    #btn-agent-menu{margin-left:auto;flex-shrink:0;width:36px;height:36px;border:0;border-radius:50%;background:#1c1c1e;color:#f4f4f5;z-index:3;position:relative}
+    .modal{z-index:40}
     .switch{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#f4f4f5;font-size:14px}
     .stack-actions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
     .stack-actions button{width:100%}
@@ -126,9 +128,8 @@
       </form>
     </div>
   </div>
-  <script src="/static/avatar.js?v=11"></script>
-  <script src="/static/app.js?v=11"></script>
-  <script src="/static/color-ui.js?v=11"></script>
-  <script src="/static/manage.js?v=11"></script>
+  <script src="/static/avatar.js?v=12"></script>
+  <script src="/static/app.js?v=12"></script>
+  <script src="/static/color-ui.js?v=12"></script>
 </body>
 </html>
