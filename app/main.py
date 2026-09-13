@@ -112,12 +112,12 @@ def speakers_for(group: dict, payload: ChatIn) -> list[dict]:
 
 @app.get("/health")
 def health():
-    return {"ok": True, "release": "v9"}
+    return {"ok": True, "release": "v10"}
 
 
 @app.get("/api/version")
 def version():
-    return {"release": "v9", "gemini": _using_gemini(), "models": _models()}
+    return {"release": "v10", "gemini": _using_gemini(), "models": _models()}
 
 
 @app.get("/")
@@ -206,38 +206,67 @@ def api_chat(specialist_id: str, payload: ChatIn):
     return {"reply": text, "messages": messages}
 
 
-def _group_system(member: dict, group: dict) -> str:
+def _group_system(member: dict, group: dict, turn: dict | None = None) -> str:
+    name = member["name"]
     mates = [m["name"] for m in group["members"] if m["id"] != member["id"]]
     mates_txt = ", ".join(mates) if mates else "nadie más por ahora"
     leader = group["leader"]
     task = group["task"] or "la que indique el líder"
-    return "\n".join([
-        member["instructions"],
+    lines = [
+        f"Tu nombre es {name}. No sos nadie más.",
+        f'Tu rol: {member.get("title") or "especialista"}.',
+        member.get("instructions") or "",
         "",
         MEDIA_HINT,
-        f'Estás en un grupo de trabajo llamado "{group["name"]}", trabajando en: {task}.',
-        f"Compartís el grupo con: {mates_txt}.",
+        f'Grupo: "{group["name"]}". Objetivo: {task}.',
+        f"Líder humano: {leader}. Compañeros: {mates_txt}.",
         "",
-        "Reglas del grupo:",
-        f"- El mensaje del usuario etiquetado como \"{leader}\" es del LÍDER del equipo: {leader}. Sus instrucciones tienen prioridad máxima.",
-        f'- Si {leader} solo saluda, presentate como integrante del equipo.',
-        "- Si el líder te menciona con @" + member["name"] + ", la pregunta es para VOS. Respondé vos.",
-        "- Si el líder responde a uno de tus mensajes, contestá ese hilo.",
-        "- Los mensajes prefijados con el nombre de otro integrante son de tus compañeros.",
-        "- Respondé en español, breve y útil.",
-    ])
+        "Identidad:",
+        f"- Hablás SOLO como {name}. Nunca digas que sos el asistente si no te llamás Asistente.",
+        (
+            f'- No saludes a tus compañeros. No empieces con "Hola {mates[0]}" ni "Hola Asistente".'
+            if mates else "- No inventes otros agentes."
+        ),
+        f"- Si {leader} pide que el equipo se presente, decí tu nombre y tu rol en 1 o 2 líneas. No copies el saludo de otro.",
+        f"- Le hablás a {leader}, no al resto del grupo, salvo que {leader} te pida hablarle a un compañero.",
+        f"- Los textos de {mates_txt} son de OTRAS personas. No los completes ni los imités.",
+        "- No uses markdown con ** ni tablas salvo que hagan falta.",
+        "- Español, corto, concreto.",
+    ]
+    if turn:
+        if turn.get("reply_to_name"):
+            lines += [
+                "",
+                f"{leader} te está respondiendo a VOS ({name}). Contestale a {leader}.",
+                "No saludes a otro agente. Seguí el pedido de esta respuesta.",
+            ]
+        if turn.get("mentioned"):
+            lines += ["", f"{leader} te mencionó con @{name}. La consigna es para vos."]
+    return "\n".join(lines)
 
 
-def _group_llm_messages(member: dict, group: dict) -> list[dict]:
-    out = [{"role": "system", "content": _group_system(member, group)}]
+def _group_llm_messages(member: dict, group: dict, turn: dict | None = None) -> list[dict]:
+    out = [{"role": "system", "content": _group_system(member, group, turn)}]
     for msg in group["messages"][-GROUP_HISTORY:]:
         content = (msg.get("content") or "").strip()
         if not content:
             continue
-        if msg.get("sender") == member["name"]:
+        sender = msg.get("sender") or "?"
+        if sender == member["name"]:
             out.append({"role": "assistant", "content": content})
-        else:
-            out.append({"role": "user", "content": f'{msg.get("sender", "?")}: {content}'})
+            continue
+        tag = "LÍDER" if sender == group.get("leader") else "compañero"
+        quoted = msg.get("reply_to_name")
+        prefix = f"[{tag} {sender}]"
+        if quoted:
+            prefix += f" (responde a {quoted})"
+        out.append({"role": "user", "content": f"{prefix}: {content}"})
+    last = (group.get("messages") or [None])[-1]
+    if last and last.get("role") == "user":
+        nudge = f"Respondé ahora como {member['name']} y dirígete a {group['leader']}."
+        if turn and turn.get("reply_to_name"):
+            nudge = f"Respondé ahora como {member['name']} al pedido de {group['leader']}. No saludes a otros agentes."
+        out.append({"role": "user", "content": nudge})
     return out
 
 
@@ -321,7 +350,11 @@ def api_group_chat(group_id: str, payload: ChatIn):
         text = ""
         for attempt in range(2):
             try:
-                text = reply_messages(_group_llm_messages(member, group))
+                turn = {
+                    "reply_to_name": reply_name if member["name"] == reply_name else "",
+                    "mentioned": member["name"].lower() in user_text.lower(),
+                }
+                text = reply_messages(_group_llm_messages(member, group, turn))
                 break
             except Exception as exc:
                 last_error = exc
