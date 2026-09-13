@@ -1,12 +1,12 @@
-const SHAPES = ["hex", "drop", "cloud", "circle", "blob", "squircle"];
-const BODY = {
-  hex: "M12 2.2 20.4 7v10L12 21.8 3.6 17V7Z",
-  drop: "M12 2.4C12 2.4 5.2 10.2 5.2 15a6.8 6.8 0 0 0 13.6 0C18.8 10.2 12 2.4 12 2.4Z",
-  cloud: "M8 10.2a3.6 3.6 0 0 1 3.3-2.4 4.2 4.2 0 0 1 4.2 3.4A3.4 3.4 0 0 1 18.6 17H6.6A3.3 3.3 0 0 1 8 10.2Z",
-  circle: "M12 3.2a8.8 8.8 0 1 1 0 17.6 8.8 8.8 0 0 1 0-17.6Z",
-  blob: "M8.2 5.4c2.4-2 6.4-2.2 8.8.2 2.2 2.2 2.4 5.6.8 8.2-1.4 2.2-1 4.6-3.2 5.8-2.6 1.4-6 .6-8-1.4-2.2-2.2-2.8-5.8-1.6-8.4 1-2.2 1.4-3.2 3.2-4.4Z",
-  squircle: "M7 3.4h10c2.4 0 3.6 1.2 3.6 3.6v10c0 2.4-1.2 3.6-3.6 3.6H7c-2.4 0-3.6-1.2-3.6-3.6V7c0-2.4 1.2-3.6 3.6-3.6Z",
-};
+const PALETTE = [
+  "#f3ead8", "#f97316", "#38bdf8", "#34d399", "#a78bfa",
+  "#fb7185", "#facc15", "#22d3ee", "#818cf8", "#fb923c",
+];
+
+function nextFreeColor(used) {
+  const set = new Set((used || []).map((c) => String(c || "").toLowerCase()));
+  return PALETTE.find((c) => !set.has(c.toLowerCase())) || PALETTE[(used || []).length % PALETTE.length];
+}
 
 function hashId(id) {
   let h = 0;
@@ -14,13 +14,8 @@ function hashId(id) {
   return h;
 }
 
-function shapeOf(spec) {
-  if (spec && spec.shape && BODY[spec.shape]) return spec.shape;
-  return SHAPES[hashId(spec && spec.id) % SHAPES.length];
-}
-
 function tint(hex, amt) {
-  const n = hex.replace("#", "");
+  const n = String(hex || "#f3ead8").replace("#", "");
   const v = parseInt(n.length === 3 ? n.split("").map((c) => c + c).join("") : n, 16);
   const r = Math.max(0, Math.min(255, ((v >> 16) & 255) + amt));
   const g = Math.max(0, Math.min(255, ((v >> 8) & 255) + amt));
@@ -29,38 +24,40 @@ function tint(hex, amt) {
 }
 
 function uid(spec) {
-  return String(spec && spec.id || "x").replace(/[^a-zA-Z0-9_-]/g, "") + hashId(spec && spec.id);
+  return String((spec && spec.id) || "x").replace(/[^a-zA-Z0-9_-]/g, "") + hashId(spec && spec.id);
 }
 
 function buddyInner(spec) {
-  const color = (spec && spec.color) || "#f97316";
-  const shape = shapeOf(spec);
+  const color = (spec && spec.color) || "#f3ead8";
   const id = uid(spec);
   const delay = (hashId(spec && spec.id) % 7) * 0.45;
-  const wink = hashId(spec && spec.id) % 2 === 0 ? "wink-left" : "wink-right";
-  return `<g class="buddy-face ${wink}" style="--blink:${delay}s">
+  return `<g class="buddy-face" style="--blink:${delay}s">
     <defs>
-      <radialGradient id="g${id}" cx="32%" cy="28%" r="78%">
-        <stop offset="0%" stop-color="${tint(color, 70)}"/>
-        <stop offset="42%" stop-color="${color}"/>
-        <stop offset="100%" stop-color="${tint(color, -55)}"/>
+      <clipPath id="c${id}"><ellipse cx="12" cy="11.7" rx="5.9" ry="4.8"/></clipPath>
+      <radialGradient id="h${id}" cx="34%" cy="26%" r="78%">
+        <stop offset="0%" stop-color="${tint(color, 55)}"/>
+        <stop offset="55%" stop-color="${color}"/>
+        <stop offset="100%" stop-color="${tint(color, -45)}"/>
       </radialGradient>
-      <filter id="s${id}" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="0" dy="1.1" stdDeviation="0.7" flood-color="#000" flood-opacity=".45"/>
-      </filter>
+      <radialGradient id="v${id}" cx="40%" cy="30%" r="80%">
+        <stop offset="0%" stop-color="#2a3348"/>
+        <stop offset="100%" stop-color="#05070d"/>
+      </radialGradient>
+      <radialGradient id="e${id}" cx="32%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#e0f2fe"/>
+        <stop offset="45%" stop-color="#38bdf8"/>
+        <stop offset="100%" stop-color="#0369a1"/>
+      </radialGradient>
     </defs>
-    <path fill="${tint(color, -70)}" d="${BODY[shape]}" transform="translate(0 0.7)" opacity=".35"/>
-    <path fill="url(#g${id})" filter="url(#s${id})" d="${BODY[shape]}"/>
-    <ellipse fill="#fff" opacity=".28" cx="8.4" cy="7.6" rx="3.2" ry="2.1"/>
-    <g class="eyes">
-      <ellipse class="eye-white" cx="9.1" cy="11.15" rx="1.85" ry="2.15" fill="#fff"/>
-      <ellipse class="eye eye-l" cx="9.25" cy="11.35" rx="1.15" ry="1.45"/>
-      <circle cx="9.7" cy="10.7" r=".35" fill="#fff"/>
-      <ellipse class="eye-white" cx="14.9" cy="11.15" rx="1.85" ry="2.15" fill="#fff"/>
-      <ellipse class="eye eye-r" cx="14.75" cy="11.35" rx="1.15" ry="1.45"/>
-      <circle cx="15.2" cy="10.7" r=".35" fill="#fff"/>
+    <ellipse cx="12" cy="12" rx="8.4" ry="8.8" fill="url(#h${id})"/>
+    <ellipse cx="12" cy="11.7" rx="6.1" ry="5" fill="url(#v${id})"/>
+    <g clip-path="url(#c${id})">
+      <g class="eyes">
+        <ellipse class="eye-led" cx="9.55" cy="12.15" rx="1.4" ry="1.65" fill="url(#e${id})"/>
+        <ellipse class="eye-led" cx="14.45" cy="12.15" rx="1.4" ry="1.65" fill="url(#e${id})"/>
+      </g>
+      <ellipse cx="9.7" cy="9.7" rx="2.3" ry=".65" fill="#fff" opacity=".16"/>
     </g>
-    <path class="mouth" d="M10.1 14.85c.7 1.25 3.1 1.25 3.8 0" fill="none" stroke="#3f1f14" stroke-width="1.05" stroke-linecap="round"/>
   </g>`;
 }
 
@@ -70,7 +67,7 @@ function buddySvg(spec, size) {
 
 function packSvg(members, size) {
   const list = (members || []).slice(0, 4);
-  if (!list.length) return buddySvg({ id: "grupo", color: "#6366f1", shape: "blob" }, size);
+  if (!list.length) return buddySvg({ id: "grupo", color: "#818cf8" }, size);
   const spots = [[1, 2, 0.58], [11, 1, 0.54], [2, 11, 0.5], [12, 12, 0.46]];
   const bits = list.map((m, i) => {
     const [x, y, s] = spots[i];
