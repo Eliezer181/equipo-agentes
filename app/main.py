@@ -9,8 +9,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.llm import _models, _using_gemini, reply, reply_messages
+from app.media import attach_media
 from app.store import (
     _now,
+    add_group_member,
     clear_messages,
     create_group,
     create_specialist,
@@ -40,6 +42,11 @@ app = FastAPI(title="Equipo de agentes")
 app.mount("/static", StaticFiles(directory=WEB), name="static")
 
 GROUP_HISTORY = 24
+
+MEDIA_HINT = (
+    "Si te piden una foto, imagen o enlace, incluí una URL http real "
+    "con markdown: ![descripción](https://...). No inventes sitios."
+)
 
 
 class SpecialistIn(BaseModel):
@@ -81,12 +88,12 @@ class KickIn(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "release": "v7"}
+    return {"ok": True, "release": "v8"}
 
 
 @app.get("/api/version")
 def version():
-    return {"release": "v7", "gemini": _using_gemini(), "models": _models()}
+    return {"release": "v8", "gemini": _using_gemini(), "models": _models()}
 
 
 @app.get("/")
@@ -160,9 +167,11 @@ def api_chat(specialist_id: str, payload: ChatIn):
     if not spec:
         raise HTTPException(status_code=404, detail="No existe ese especialista")
     messages = load_messages(specialist_id)
-    messages.append({"role": "user", "content": payload.message.strip(), "at": _now()})
+    user_text = payload.message.strip()
+    messages.append({"role": "user", "content": user_text, "at": _now()})
     try:
-        text = reply(spec["instructions"], messages)
+        text = reply(spec["instructions"] + "\n\n" + MEDIA_HINT, messages)
+        text = attach_media(user_text, text)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     messages.append({"role": "assistant", "content": text, "at": _now()})
@@ -178,6 +187,7 @@ def _group_system(member: dict, group: dict) -> str:
     return "\n".join([
         member["instructions"],
         "",
+        MEDIA_HINT,
         f'Estás en un grupo de trabajo llamado "{group["name"]}", trabajando en: {task}.',
         f"Compartís el grupo con: {mates_txt}.",
         "",
@@ -228,6 +238,17 @@ def api_group_messages(group_id: str):
     return group.get("messages", [])
 
 
+@app.post("/api/groups/{group_id}/members")
+def api_group_add(group_id: str, payload: KickIn):
+    spec = get_specialist(payload.member_id)
+    if not spec:
+        raise HTTPException(status_code=404, detail="No existe ese especialista")
+    group = add_group_member(group_id, spec)
+    if group is None:
+        raise HTTPException(status_code=404, detail="No existe ese grupo")
+    return group
+
+
 @app.post("/api/groups/{group_id}/kick")
 def api_group_kick(group_id: str, payload: KickIn):
     try:
@@ -253,10 +274,11 @@ def api_group_chat(group_id: str, payload: ChatIn):
         raise HTTPException(status_code=404, detail="No existe ese grupo")
     if not group.get("members"):
         raise HTTPException(status_code=400, detail="El grupo no tiene integrantes")
+    user_text = payload.message.strip()
     group.setdefault("messages", []).append({
         "sender": group["leader"],
         "role": "user",
-        "content": payload.message.strip(),
+        "content": user_text,
         "at": _now(),
     })
     replies = []
@@ -274,6 +296,7 @@ def api_group_chat(group_id: str, payload: ChatIn):
                     time.sleep(1)
         if not text:
             continue
+        text = attach_media(user_text, text)
         msg = {
             "sender": member["name"],
             "role": "assistant",
