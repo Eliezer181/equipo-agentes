@@ -41,7 +41,7 @@ WEB = ROOT / "web"
 app = FastAPI(title="Equipo de agentes")
 app.mount("/static", StaticFiles(directory=WEB), name="static")
 
-GROUP_HISTORY = 24
+GROUP_HISTORY = 12
 
 MEDIA_HINT = (
     "Si te piden una foto, imagen o enlace, incluí una URL http real "
@@ -112,12 +112,12 @@ def speakers_for(group: dict, payload: ChatIn) -> list[dict]:
 
 @app.get("/health")
 def health():
-    return {"ok": True, "release": "v10"}
+    return {"ok": True, "release": "v11"}
 
 
 @app.get("/api/version")
 def version():
-    return {"release": "v10", "gemini": _using_gemini(), "models": _models()}
+    return {"release": "v11", "gemini": _using_gemini(), "models": _models()}
 
 
 @app.get("/")
@@ -206,68 +206,91 @@ def api_chat(specialist_id: str, payload: ChatIn):
     return {"reply": text, "messages": messages}
 
 
+def _clean_reply(text: str, name: str) -> str:
+    out = (text or "").strip().replace("**", "")
+    if name.lower() != "asistente" and "soy el asistente" in out.lower():
+        lines = [ln for ln in out.splitlines() if "soy el asistente" not in ln.lower()]
+        out = "\n".join(lines).strip() or f"Soy {name}."
+    return out
+
+
 def _group_system(member: dict, group: dict, turn: dict | None = None) -> str:
     name = member["name"]
+    role = member.get("title") or "especialista"
     mates = [m["name"] for m in group["members"] if m["id"] != member["id"]]
-    mates_txt = ", ".join(mates) if mates else "nadie más por ahora"
+    mates_txt = ", ".join(mates) if mates else "nadie más"
     leader = group["leader"]
-    task = group["task"] or "la que indique el líder"
+    task = group["task"] or "lo que pida el líder"
+    forbidden = ", ".join(mates) if mates else "ningún otro nombre"
     lines = [
-        f"Tu nombre es {name}. No sos nadie más.",
-        f'Tu rol: {member.get("title") or "especialista"}.',
+        f"SOS {name}. Rol: {role}.",
+        "Prohibido decir que sos otra persona.",
+        f"Prohibido presentarte como {forbidden}." if mates else "",
         member.get("instructions") or "",
         "",
-        MEDIA_HINT,
-        f'Grupo: "{group["name"]}". Objetivo: {task}.',
-        f"Líder humano: {leader}. Compañeros: {mates_txt}.",
+        f'Grupo "{group["name"]}". Tarea: {task}.',
+        f"El humano se llama {leader}. Tus compañeros: {mates_txt}.",
         "",
-        "Identidad:",
-        f"- Hablás SOLO como {name}. Nunca digas que sos el asistente si no te llamás Asistente.",
-        (
-            f'- No saludes a tus compañeros. No empieces con "Hola {mates[0]}" ni "Hola Asistente".'
-            if mates else "- No inventes otros agentes."
-        ),
-        f"- Si {leader} pide que el equipo se presente, decí tu nombre y tu rol en 1 o 2 líneas. No copies el saludo de otro.",
-        f"- Le hablás a {leader}, no al resto del grupo, salvo que {leader} te pida hablarle a un compañero.",
-        f"- Los textos de {mates_txt} son de OTRAS personas. No los completes ni los imités.",
-        "- No uses markdown con ** ni tablas salvo que hagan falta.",
-        "- Español, corto, concreto.",
+        "Cómo hablar:",
+        f"- Todo lo que escribas es de {name}.",
+        f"- Si te pedís presentar, empezá con: Soy {name}, {role}.",
+        f"- Le hablás a {leader}, excepto si te pide saludar o responderle a un compañero.",
+        "- Si un compañero te nombra con @, contestale a ese compañero, breve.",
+        "- No copies el mensaje de otro. No uses **.",
+        "- Máximo 4 frases.",
     ]
-    if turn:
-        if turn.get("reply_to_name"):
-            lines += [
-                "",
-                f"{leader} te está respondiendo a VOS ({name}). Contestale a {leader}.",
-                "No saludes a otro agente. Seguí el pedido de esta respuesta.",
-            ]
-        if turn.get("mentioned"):
-            lines += ["", f"{leader} te mencionó con @{name}. La consigna es para vos."]
-    return "\n".join(lines)
+    turn = turn or {}
+    if turn.get("address"):
+        lines += ["", f"En este turno hablale a {turn['address']}."]
+    if turn.get("task"):
+        lines += ["", f"Consigna de este turno: {turn['task']}"]
+    return "\n".join(ln for ln in lines if ln is not None)
 
 
-def _group_llm_messages(member: dict, group: dict, turn: dict | None = None) -> list[dict]:
-    out = [{"role": "system", "content": _group_system(member, group, turn)}]
-    for msg in group["messages"][-GROUP_HISTORY:]:
+def _transcript(member: dict, group: dict) -> str:
+    rows = []
+    for msg in group.get("messages", [])[-GROUP_HISTORY:]:
         content = (msg.get("content") or "").strip()
         if not content:
             continue
         sender = msg.get("sender") or "?"
-        if sender == member["name"]:
-            out.append({"role": "assistant", "content": content})
-            continue
-        tag = "LÍDER" if sender == group.get("leader") else "compañero"
-        quoted = msg.get("reply_to_name")
-        prefix = f"[{tag} {sender}]"
-        if quoted:
-            prefix += f" (responde a {quoted})"
-        out.append({"role": "user", "content": f"{prefix}: {content}"})
-    last = (group.get("messages") or [None])[-1]
-    if last and last.get("role") == "user":
-        nudge = f"Respondé ahora como {member['name']} y dirígete a {group['leader']}."
-        if turn and turn.get("reply_to_name"):
-            nudge = f"Respondé ahora como {member['name']} al pedido de {group['leader']}. No saludes a otros agentes."
-        out.append({"role": "user", "content": nudge})
-    return out
+        mine = " (vos)" if sender == member["name"] else ""
+        rows.append(f"{sender}{mine}: {content}")
+    return "\n".join(rows) if rows else "(sin historial)"
+
+
+def _group_llm_messages(member: dict, group: dict, turn: dict | None = None) -> list[dict]:
+    name = member["name"]
+    leader = group["leader"]
+    last = (group.get("messages") or [{}])[-1]
+    last_line = f"{last.get('sender', leader)}: {last.get('content', '')}"
+    user = "\n".join([
+        "Chat reciente:",
+        _transcript(member, group),
+        "",
+        f"Último mensaje: {last_line}",
+        f"Escribí la respuesta de {name} ahora. No digas que sos otra persona.",
+    ])
+    return [
+        {"role": "system", "content": _group_system(member, group, turn)},
+        {"role": "user", "content": user},
+    ]
+
+
+def _speak(member: dict, group: dict, turn: dict | None = None) -> str:
+    import time
+    last_error = None
+    for attempt in range(2):
+        try:
+            text = reply_messages(_group_llm_messages(member, group, turn))
+            return _clean_reply(text, member["name"])
+        except Exception as exc:
+            last_error = exc
+            if attempt == 0:
+                time.sleep(1)
+    if last_error:
+        raise last_error
+    return ""
 
 
 @app.get("/api/groups")
@@ -345,23 +368,17 @@ def api_group_chat(group_id: str, payload: ChatIn):
     })
     replies = []
     last_error = None
-    import time
-    for member in target:
-        text = ""
-        for attempt in range(2):
-            try:
-                turn = {
-                    "reply_to_name": reply_name if member["name"] == reply_name else "",
-                    "mentioned": member["name"].lower() in user_text.lower(),
-                }
-                text = reply_messages(_group_llm_messages(member, group, turn))
-                break
-            except Exception as exc:
-                last_error = exc
-                if attempt == 0:
-                    time.sleep(1)
+    spoken: set[str] = set()
+
+    def add_reply(member: dict, turn: dict, quote_name: str = "") -> str:
+        nonlocal last_error
+        try:
+            text = _speak(member, group, turn)
+        except Exception as exc:
+            last_error = exc
+            return ""
         if not text:
-            continue
+            return ""
         text = attach_media(user_text, text)
         msg = {
             "sender": member["name"],
@@ -370,11 +387,36 @@ def api_group_chat(group_id: str, payload: ChatIn):
             "content": text,
             "at": _now(),
             "color": member.get("color", "#f97316"),
-            "reply_to": payload.reply_to,
-            "reply_to_name": reply_name,
+            "reply_to": member["id"],
+            "reply_to_name": quote_name,
         }
         group["messages"].append(msg)
         replies.append(msg)
+        spoken.add(member["id"])
+        return text
+
+    for member in target:
+        turn = {"task": user_text, "address": group["leader"]}
+        if payload.reply_to and member["name"] == reply_name:
+            turn["task"] = f"{group['leader']} te respondió: {user_text}"
+        add_reply(member, turn, reply_name)
+
+    pending = []
+    snapshot = list(replies)
+    for msg in snapshot:
+        for other in group["members"]:
+            if other["id"] in spoken:
+                continue
+            if f"@{other['name'].lower()}" in (msg.get("content") or "").lower():
+                pending.append((other, msg["sender"]))
+    for other, who in pending:
+        if other["id"] in spoken:
+            continue
+        add_reply(other, {
+            "task": f"{who} te habló. Respondéle a {who}.",
+            "address": who,
+        }, who)
+
     save_group(group)
     if not replies:
         raise HTTPException(status_code=500, detail=str(last_error or "Nadie pudo responder"))
