@@ -2,7 +2,9 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Equipo</title>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
@@ -37,25 +39,24 @@
       </header>
       <div id="thread" class="thread"></div>
       <form id="composer" class="composer">
-        <input id="input" autocomplete="off" placeholder="Mensaje" />
+        <input id="input" autocomplete="off" placeholder="Mensaje" enterkeyhint="send" />
         <button type="submit">Enviar</button>
       </form>
     </section>
-  </div>
 
-  <div id="modal" class="modal hidden">
-    <form id="create" class="sheet">
-      <h2>Nuevo especialista</h2>
-      <label>Nombre<input name="name" required maxlength="40" placeholder="Ej. Investigador" /></label>
-      <label>Cargo<input name="title" maxlength="40" placeholder="Ej. Especialista en research" /></label>
-      <label>Cómo debe trabajar<textarea name="instructions" rows="5" placeholder="Rol, tono, qué puede y qué no puede hacer."></textarea></label>
-      <div class="sheet-actions">
-        <button type="button" id="btn-cancel" class="ghost">Cancelar</button>
-        <button type="submit">Crear</button>
-      </div>
-    </form>
+    <div id="modal" class="modal hidden">
+      <form id="create" class="sheet">
+        <h2>Nuevo especialista</h2>
+        <label>Nombre<input name="name" required maxlength="40" placeholder="Ej. Investigador" /></label>
+        <label>Cargo<input name="title" maxlength="40" placeholder="Ej. Especialista en research" /></label>
+        <label>Cómo debe trabajar<textarea name="instructions" rows="4" placeholder="Rol, tono, qué puede y qué no puede hacer."></textarea></label>
+        <div class="sheet-actions">
+          <button type="button" id="btn-cancel" class="ghost">Cancelar</button>
+          <button type="submit">Crear</button>
+        </div>
+      </form>
+    </div>
   </div>
-
   <script src="/static/app.js"></script>
 </body>
 </html>

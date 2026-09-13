@@ -6,6 +6,8 @@ from openai import OpenAI
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 XAI_URL = "https://api.x.ai/v1"
+GEMINI_DEFAULT = "gemini-flash-latest"
+LEGACY = {"gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"}
 
 
 def _keys() -> tuple[str, str]:
@@ -33,9 +35,11 @@ def default_model() -> str:
     configured = os.getenv("MODEL", "").strip()
     gemini, xai = _keys()
     using_gemini = bool(gemini or (xai and not _is_xai(xai)))
-    if configured:
+    if using_gemini:
+        if not configured or configured in LEGACY:
+            return GEMINI_DEFAULT
         return configured
-    return "gemini-2.5-flash" if using_gemini else "grok-4.3"
+    return configured or "grok-4.3"
 
 
 def reply(instructions: str, history: list[dict]) -> str:
