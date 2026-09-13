@@ -19,6 +19,8 @@ from app.store import (
     list_groups,
     list_specialists,
     load_messages,
+    remove_group_member,
+    reorder_specialists,
     save_group,
     save_messages,
     seed_defaults,
@@ -53,14 +55,22 @@ class GroupIn(BaseModel):
     members: list[str] = Field(default_factory=list)
 
 
+class ReorderIn(BaseModel):
+    ids: list[str]
+
+
+class KickIn(BaseModel):
+    member_id: str
+
+
 @app.get("/health")
 def health():
-    return {"ok": True, "release": "v4.2"}
+    return {"ok": True, "release": "v5"}
 
 
 @app.get("/api/version")
 def version():
-    return {"release": "v4.2", "gemini": _using_gemini(), "models": _models()}
+    return {"release": "v5", "gemini": _using_gemini(), "models": _models()}
 
 
 @app.get("/")
@@ -76,6 +86,11 @@ def api_list():
 @app.post("/api/specialists")
 def api_create(payload: SpecialistIn):
     return create_specialist(payload.name, payload.title, payload.instructions)
+
+
+@app.post("/api/specialists/reorder")
+def api_reorder(payload: ReorderIn):
+    return reorder_specialists(payload.ids)
 
 
 @app.get("/api/specialists/{specialist_id}/messages")
@@ -101,9 +116,6 @@ def api_chat(specialist_id: str, payload: ChatIn):
     return {"reply": text, "messages": messages}
 
 
-# ---------- Grupos ----------
-
-
 def _group_system(member: dict, group: dict) -> str:
     mates = [m["name"] for m in group["members"] if m["id"] != member["id"]]
     mates_txt = ", ".join(mates) if mates else "nadie más por ahora"
@@ -116,10 +128,10 @@ def _group_system(member: dict, group: dict) -> str:
         f"Compartís el grupo con: {mates_txt}.",
         "",
         "Reglas del grupo:",
-        f"- El mensaje del usuario etiquetado como \"{leader}\" es del LÍDER del equipo: {leader}. Sus instrucciones tienen prioridad máxima. Respondé con respeto y a la orden.",
-        f'- Si {leader} solo saluda (ej. "hola"), presentate como integrante del equipo y dejale claro que estás a sus órdenes.',
-        "- Los mensajes prefijados con el nombre de otro integrante son de tus compañeros: coordiná con ellos, no repitas lo que ya dijeron y aportá desde tu especialidad.",
-        "- Respondé en español, breve y útil. Evitá tablas largas y formato pesado: es un chat de equipo.",
+        f"- El mensaje del usuario etiquetado como \"{leader}\" es del LÍDER del equipo: {leader}. Sus instrucciones tienen prioridad máxima.",
+        f'- Si {leader} solo saluda, presentate como integrante del equipo.',
+        "- Los mensajes prefijados con el nombre de otro integrante son de tus compañeros.",
+        "- Respondé en español, breve y útil.",
     ])
 
 
@@ -162,6 +174,17 @@ def api_group_messages(group_id: str):
     return group.get("messages", [])
 
 
+@app.post("/api/groups/{group_id}/kick")
+def api_group_kick(group_id: str, payload: KickIn):
+    try:
+        group = remove_group_member(group_id, payload.member_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if group is None:
+        raise HTTPException(status_code=404, detail="No existe ese grupo")
+    return group
+
+
 @app.delete("/api/groups/{group_id}")
 def api_group_delete(group_id: str):
     if not delete_group(group_id):
@@ -195,8 +218,6 @@ def api_group_chat(group_id: str, payload: ChatIn):
                 last_error = exc
                 if attempt == 0:
                     time.sleep(1)
-        if not text:
-            continue
         if not text:
             continue
         msg = {
