@@ -12,6 +12,7 @@ GEMINI_MODELS = (
     "gemini-3.1-flash-lite",
     "gemini-flash-latest",
 )
+RETRYABLE = ("model not found", "invalid-argument", "not found", "does not exist")
 
 
 def _keys() -> tuple[str, str]:
@@ -53,12 +54,8 @@ def _models() -> list[str]:
     return out
 
 
-def reply(instructions: str, history: list[dict]) -> str:
-    messages = [{"role": "system", "content": instructions}]
-    for item in history[-30:]:
-        role = item.get("role")
-        if role in {"user", "assistant"} and item.get("content"):
-            messages.append({"role": role, "content": item["content"]})
+def reply_messages(messages: list[dict]) -> str:
+    """Prueba los modelos en orden hasta que uno responda."""
     last_error = None
     api = client()
     for model in _models():
@@ -72,7 +69,16 @@ def reply(instructions: str, history: list[dict]) -> str:
         except Exception as exc:
             last_error = exc
             text = str(exc).lower()
-            if "model not found" in text or "invalid-argument" in text or "not found" in text or "does not exist" in text:
+            if any(marker in text for marker in RETRYABLE):
                 continue
             raise
-    raise last_error or RuntimeError("No se pudo usar ningún modelo de Gemini")
+    raise last_error or RuntimeError("No se pudo usar ningún modelo")
+
+
+def reply(instructions: str, history: list[dict]) -> str:
+    messages = [{"role": "system", "content": instructions}]
+    for item in history[-30:]:
+        role = item.get("role")
+        if role in {"user", "assistant"} and item.get("content"):
+            messages.append({"role": role, "content": item["content"]})
+    return reply_messages(messages)

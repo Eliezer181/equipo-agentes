@@ -1,6 +1,10 @@
 app = "equipo-agentes"
 primary_region = "gru"
 
+[mounts]
+  source = "equipo_data"
+  destination = "/app/data"
+
 [build]
 
 [http_service]

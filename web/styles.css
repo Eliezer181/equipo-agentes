@@ -213,3 +213,101 @@ html, body {
 }
 .sheet-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 .ghost { background: #27272a !important; color: var(--text) !important; }
+
+/* ---- Grupos ---- */
+
+.section-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #8b8b8f);
+  padding: 14px 16px 6px;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--muted, #8b8b8f);
+  padding: 0 16px 12px;
+  line-height: 1.5;
+}
+
+.dot-group {
+  background: linear-gradient(135deg, #6366f1, #22d3ee) !important;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.badge-group {
+  background: rgba(99, 102, 241, 0.18);
+  color: #a5b4fc;
+}
+
+.sender {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.user-sender {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.small-meta {
+  font-size: 11px;
+  line-height: 1.4;
+  max-width: 220px;
+  white-space: normal;
+}
+
+.thinking .sender {
+  color: var(--muted, #8b8b8f);
+  animation: pulse 1.2s infinite;
+}
+
+@keyframes pulse {
+  50% { opacity: 0.4; }
+}
+
+.members-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.member-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.member-check:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dot.mini {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.top-actions #btn-add-group {
+  position: relative;
+}
+
+.hidden {
+  display: none !important;
+}

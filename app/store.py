@@ -103,3 +103,108 @@ def last_preview(specialist_id: str) -> dict:
     if len(text) > 72:
         text = text[:69] + "..."
     return {"last_message": text or "Sin mensajes", "last_at": last.get("at", "")}
+
+
+# ---------- Grupos ----------
+
+GROUPS_DIR = DATA / "groups"
+
+DEFAULT_SPECIALISTS = [
+    {
+        "id": "asistente",
+        "name": "Asistente",
+        "title": "General",
+        "color": "#f97316",
+        "instructions": "Sos un asistente útil, directo y en español. Preguntá si falta contexto. No inventes datos. Si no sabés algo, decilo.",
+    }
+]
+
+
+def seed_defaults() -> None:
+    """Crea el especialista base si arranca con un volumen vacío."""
+    if not SPECIALISTS_PATH.exists():
+        _write_json(SPECIALISTS_PATH, DEFAULT_SPECIALISTS)
+
+
+def group_path(group_id: str) -> Path:
+    return GROUPS_DIR / f"{group_id}.json"
+
+
+def list_groups() -> list[dict]:
+    out: list[dict] = []
+    with _lock:
+        GROUPS_DIR.mkdir(parents=True, exist_ok=True)
+        for path in sorted(GROUPS_DIR.glob("*.json")):
+            group = _read_json(path, None)
+            if not group:
+                continue
+            messages = group.get("messages") or []
+            last = messages[-1] if messages else {}
+            text = (last.get("content") or "").strip().replace("\n", " ")
+            if len(text) > 72:
+                text = text[:69] + "..."
+            out.append({
+                "id": group["id"],
+                "name": group["name"],
+                "task": group.get("task", ""),
+                "leader": group.get("leader", ""),
+                "members": [
+                    {"id": m["id"], "name": m["name"], "color": m["color"]}
+                    for m in group.get("members", [])
+                ],
+                "last_message": text or "Sin mensajes",
+                "last_at": last.get("at", ""),
+            })
+    return out
+
+
+def get_group(group_id: str) -> dict | None:
+    with _lock:
+        return _read_json(group_path(group_id), None)
+
+
+def save_group(group: dict) -> None:
+    with _lock:
+        _write_json(group_path(group["id"]), group)
+
+
+def delete_group(group_id: str) -> bool:
+    with _lock:
+        path = group_path(group_id)
+        if path.exists():
+            path.unlink()
+            return True
+        return False
+
+
+def create_group(name: str, task: str, leader: str, members: list[dict]) -> dict:
+    name = name.strip()
+    if not name:
+        raise ValueError("El nombre es obligatorio")
+    with _lock:
+        GROUPS_DIR.mkdir(parents=True, exist_ok=True)
+        existing = {p.stem for p in GROUPS_DIR.glob("*.json")}
+        base = slugify(name)
+        group_id = base
+        n = 2
+        while group_id in existing:
+            group_id = f"{base}-{n}"
+            n += 1
+        group = {
+            "id": group_id,
+            "name": name,
+            "task": (task or "").strip(),
+            "leader": (leader or "").strip() or "Líder",
+            "members": [
+                {
+                    "id": m["id"],
+                    "name": m["name"],
+                    "color": m.get("color", "#f97316"),
+                    "instructions": m.get("instructions", ""),
+                }
+                for m in members
+            ],
+            "messages": [],
+        }
+        _write_json(group_path(group_id), group)
+    return group
