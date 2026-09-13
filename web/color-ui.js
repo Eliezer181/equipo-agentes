@@ -46,11 +46,16 @@ const createForm = document.getElementById("create");
 createForm.onsubmit = async (e) => {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(e.target).entries());
-  const created = await (await fetch("/api/specialists", {
+  const res = await fetch("/api/specialists", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
-  })).json();
+  });
+  const created = await res.json();
+  if (!res.ok) {
+    alert(created.detail || "No se pudo crear");
+    return;
+  }
   modal.classList.add("hidden");
   e.target.reset();
   await loadList();
@@ -59,7 +64,6 @@ createForm.onsubmit = async (e) => {
 };
 
 const composer = document.getElementById("composer");
-const prevComposer = composer.onsubmit;
 composer.addEventListener("submit", () => {
   if (typeof BuddyLife !== "undefined") BuddyLife.talk(true);
   setTimeout(() => { if (typeof BuddyLife !== "undefined") BuddyLife.talk(false); }, 2800);
