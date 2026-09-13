@@ -19,33 +19,30 @@ function shapeOf(spec) {
   return SHAPES[hashId(spec && spec.id) % SHAPES.length];
 }
 
-function buddySvg(spec, size) {
+function buddyInner(spec) {
   const color = (spec && spec.color) || "#f97316";
   const shape = shapeOf(spec);
   const delay = (hashId(spec && spec.id) % 7) * 0.45;
   const wink = hashId(spec && spec.id) % 2 === 0 ? "wink-left" : "wink-right";
-  return `<svg class="buddy ${wink}" viewBox="0 0 24 24" width="${size}" height="${size}" style="--blink:${delay}s" aria-hidden="true">
+  return `<g class="buddy-face ${wink}" style="--blink:${delay}s">
     <path fill="${color}" d="${BODY[shape]}"/>
     <ellipse class="eye eye-l" cx="9.2" cy="11.2" rx="1.35" ry="1.7"/>
     <ellipse class="eye eye-r" cx="14.8" cy="11.2" rx="1.35" ry="1.7"/>
     <path class="mouth" d="M10 14.7c.7 1.1 3.3 1.1 4 0" fill="none" stroke="#171717" stroke-width="1.15" stroke-linecap="round"/>
-  </svg>`;
+  </g>`;
+}
+
+function buddySvg(spec, size) {
+  return `<svg class="buddy" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">${buddyInner(spec)}</svg>`;
 }
 
 function packSvg(members, size) {
   const list = (members || []).slice(0, 4);
-  if (!list.length) {
-    return buddySvg({ id: "grupo", color: "#6366f1", shape: "blob" }, size);
-  }
-  const spots = [
-    [1, 2, 14],
-    [11, 1, 13],
-    [2, 11, 12],
-    [12, 12, 11],
-  ];
+  if (!list.length) return buddySvg({ id: "grupo", color: "#6366f1", shape: "blob" }, size);
+  const spots = [[1, 2, 0.58], [11, 1, 0.54], [2, 11, 0.5], [12, 12, 0.46]];
   const bits = list.map((m, i) => {
     const [x, y, s] = spots[i];
-    return `<g transform="translate(${x} ${y}) scale(${s / 24})">${buddySvg(m, 24)}</g>`;
+    return `<g transform="translate(${x} ${y}) scale(${s})">${buddyInner(m)}</g>`;
   }).join("");
   return `<svg class="buddy pack" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">${bits}</svg>`;
 }
