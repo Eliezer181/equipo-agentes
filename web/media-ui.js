@@ -23,28 +23,26 @@ function renderRich(text) {
   return out.join("").replace(/@([\wÁÉÍÓÚÜÑáéíóúüñ-]+)/g, '<span class="mention">@$1</span>');
 }
 
-function memberIdByName(name) {
-  const n = String(name || "").toLowerCase();
-  const hit = ((current && current.members) || []).find((m) => (m.name || "").toLowerCase() === n);
-  return hit ? hit.id : "";
-}
-
 function groupBubble(m) {
-  const mid = m.member_id || memberIdByName(m.sender);
+  const mid = m.member_id || "";
   const quote = m.reply_to_name ? `<div class="quote">↪ ${escapeHtml(m.reply_to_name)}</div>` : "";
   if (m.role === "user") {
     return `<div class="bubble user">${quote}<div class="sender user-sender">${escapeHtml(current.leader || "Líder")}</div>${renderRich(m.content)}</div>`;
   }
   const color = m.color || "#f97316";
-  return `<div class="bubble assistant swipeable" data-sender="${escapeHtml(m.sender || "")}" data-member="${escapeHtml(mid)}">${quote}<div class="sender" style="color:${color}">${escapeHtml(m.sender)}</div>${renderRich(m.content)}<button type="button" class="reply-hit" data-reply="1" aria-label="Responder">↪</button></div>`;
+  const sender = m.sender || "";
+  return `<div class="bubble assistant swipeable" data-sender="${escapeHtml(sender)}" data-member="${escapeHtml(mid)}">
+    <button type="button" class="reply-hit" data-reply="1" aria-label="Responder">↩</button>
+    ${quote}<div class="sender" style="color:${color}">${escapeHtml(sender)}</div>${renderRich(m.content)}
+  </div>`;
 }
 
 renderThread = function (messages) {
   if (!current) return;
   if (current.type === "group") {
-    thread.innerHTML = (messages || []).map((item) => groupBubble(item)).join("");
+    thread.innerHTML = (messages || []).map((x) => groupBubble(x)).join("");
   } else {
-    thread.innerHTML = (messages || []).map((item) => `<div class="bubble ${item.role}">${renderRich(item.content)}</div>`).join("");
+    thread.innerHTML = (messages || []).map((x) => `<div class="bubble ${x.role}">${renderRich(x.content)}</div>`).join("");
   }
   thread.scrollTop = thread.scrollHeight;
 };
@@ -74,102 +72,27 @@ function setReplyTarget(memberId, sender, preview) {
   input.focus();
 }
 
-function pickReplyFromBubble(bubble) {
-  if (!bubble) return;
-  const sender = bubble.dataset.sender || "";
-  const mid = bubble.dataset.member || memberIdByName(sender);
+function memberIdOf(bubble) {
+  if (!bubble || !current || current.type !== "group") return "";
+  if (bubble.dataset.member) return bubble.dataset.member;
+  const sender = bubble.dataset.sender;
+  const hit = (current.members || []).find((m) => m.name === sender);
+  return hit ? hit.id : "";
+}
+
+function startReplyFrom(bubble) {
+  const mid = memberIdOf(bubble);
   if (!mid) return;
-  setReplyTarget(mid, sender, bubble.innerText);
+  setReplyTarget(mid, bubble.dataset.sender, bubble.textContent);
 }
-
-async function refreshAddList() {
-  try {
-    specialists = await (await fetch("/api/specialists")).json();
-  } catch (_) {}
-  const host = document.querySelector(".add-member") || document.getElementById("add-member-select")?.parentElement;
-  if (!host || !current || current.type !== "group") return;
-  const inside = new Set((current.members || []).map((m) => m.id));
-  const extras = (Array.isArray(specialists) ? specialists : []).filter((s) => s && s.id && !inside.has(s.id));
-  host.innerHTML = extras.length
-    ? extras.map((s) => `<button type="button" class="add-chip" data-add="${s.id}">${buddySvg(s, 22)} ${escapeHtml(s.name)}</button>`).join("")
-    : `<p class="hint-inline">No hay otros agentes. Creá uno con + y volvé acá.</p>`;
-}
-
-const _openGroupInfo = openGroupInfo;
-openGroupInfo = async function () {
-  _openGroupInfo();
-  await refreshAddList();
-};
-
-document.getElementById("info-modal").addEventListener("click", async (e) => {
-  const btn = e.target.closest("[data-add]");
-  if (!btn || !current || current.type !== "group") return;
-  const res = await fetch(`/api/groups/${current.id}/members`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ member_id: btn.dataset.add }),
-  });
-  const payload = await res.json();
-  if (!res.ok) return alert(payload.detail || "No se pudo agregar");
-  const fresh = await refreshGroup(current.id);
-  current = { type: "group", ...fresh };
-  document.getElementById("chat-title").textContent = `${current.members.length} integrantes`;
-  document.getElementById("chat-dot").innerHTML = packSvg(current.members, 42);
-  openGroupInfo();
-});
-
-function mentionBox() {
-  let box = document.getElementById("mention-box");
-  if (box) return box;
-  box = document.createElement("div");
-  box.id = "mention-box";
-  box.className = "mention-box hidden";
-  document.getElementById("composer").before(box);
-  box.addEventListener("click", (e) => {
-    const row = e.target.closest("[data-mention]");
-    if (!row) return;
-    const name = row.dataset.mention;
-    const cur = input.value;
-    const at = cur.lastIndexOf("@");
-    input.value = (at >= 0 ? cur.slice(0, at) : cur) + "@" + name + " ";
-    box.classList.add("hidden");
-    input.focus();
-  });
-  return box;
-}
-
-function showMentions() {
-  const box = mentionBox();
-  if (!current || current.type !== "group") {
-    box.classList.add("hidden");
-    return;
-  }
-  const val = input.value;
-  const at = val.lastIndexOf("@");
-  if (at < 0 || /\s/.test(val.slice(at))) {
-    box.classList.add("hidden");
-    return;
-  }
-  const q = val.slice(at + 1).toLowerCase();
-  const people = (current.members || []).filter((m) => !q || (m.name || "").toLowerCase().includes(q));
-  if (!people.length) {
-    box.classList.add("hidden");
-    return;
-  }
-  box.innerHTML = people.map((m) => `<button type="button" data-mention="${escapeHtml(m.name)}">${buddySvg(m, 22)} ${escapeHtml(m.name)}</button>`).join("");
-  box.classList.remove("hidden");
-}
-
-input.addEventListener("input", showMentions);
-input.addEventListener("focus", showMentions);
-input.addEventListener("blur", () => setTimeout(() => mentionBox().classList.add("hidden"), 180));
 
 thread.addEventListener("click", (e) => {
-  const hit = e.target.closest(".reply-hit");
+  const hit = e.target.closest("[data-reply]");
   if (!hit) return;
   e.preventDefault();
   e.stopPropagation();
-  pickReplyFromBubble(hit.closest(".bubble"));
+  const bubble = hit.closest(".bubble.assistant");
+  if (bubble) startReplyFrom(bubble);
 });
 
 let swipe = null;
@@ -180,14 +103,14 @@ function onSwipeMove(x, y) {
   if (!swipe) return;
   const dx = x - swipe.x;
   const dy = y - swipe.y;
-  if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-  if (Math.abs(dy) > Math.abs(dx) + 8) {
+  if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+  if (Math.abs(dy) > Math.abs(dx) + 6) {
     swipe.bubble.style.transform = "";
     swipe = null;
     return;
   }
   swipe.dx = dx;
-  swipe.bubble.style.transform = `translateX(${Math.max(0, Math.min(80, dx))}px)`;
+  swipe.bubble.style.transform = `translateX(${Math.max(0, Math.min(84, dx))}px)`;
 }
 function onSwipeEnd() {
   if (!swipe) return;
@@ -195,7 +118,7 @@ function onSwipeEnd() {
   const dx = swipe.dx;
   bubble.style.transform = "";
   swipe = null;
-  if (dx > 42) pickReplyFromBubble(bubble);
+  if (dx > 48) startReplyFrom(bubble);
 }
 
 thread.addEventListener("touchstart", (e) => {
@@ -211,20 +134,102 @@ thread.addEventListener("touchmove", (e) => {
   onSwipeMove(t.clientX, t.clientY);
 }, { passive: true });
 thread.addEventListener("touchend", onSwipeEnd, { passive: true });
-thread.addEventListener("pointerdown", (e) => {
-  if (e.pointerType === "touch") return;
-  if (!current || current.type !== "group") return;
-  const bubble = e.target.closest(".bubble.assistant.swipeable");
-  if (!bubble) return;
-  onSwipeStart(e.clientX, e.clientY, bubble);
+thread.addEventListener("touchcancel", () => {
+  if (swipe) swipe.bubble.style.transform = "";
+  swipe = null;
+}, { passive: true });
+
+async function paintAddList() {
+  const host = document.getElementById("add-member-list") || document.querySelector(".add-member");
+  if (!host || !current || current.type !== "group") return;
+  let list = specialists;
+  try {
+    list = await (await fetch("/api/specialists")).json();
+    specialists = list;
+  } catch (_) {}
+  const inside = new Set((current.members || []).map((m) => String(m.id)));
+  const extras = (list || []).filter((s) => s && s.id && !inside.has(String(s.id)));
+  if (!extras.length) {
+    host.innerHTML = `<p class="hint-inline">No hay agentes afuera de este grupo. Creá uno con + y volvé acá.</p>`;
+    return;
+  }
+  host.innerHTML = extras.map((s) => `
+    <button type="button" class="add-one" data-add="${s.id}">
+      ${buddySvg(s, 28)}
+      <span>${escapeHtml(s.name)}</span>
+    </button>`).join("");
+}
+
+const _openGroupInfo = openGroupInfo;
+openGroupInfo = async function () {
+  _openGroupInfo();
+  await paintAddList();
+};
+
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-add]");
+  if (!btn || !current || current.type !== "group") return;
+  const res = await fetch(`/api/groups/${current.id}/members`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ member_id: btn.dataset.add }),
+  });
+  const payload = await res.json();
+  if (!res.ok) return alert(payload.detail || "No se pudo agregar");
+  const fresh = await refreshGroup(current.id);
+  current = { type: "group", ...(fresh || payload) };
+  document.getElementById("chat-title").textContent = `${current.members.length} integrantes`;
+  document.getElementById("chat-dot").innerHTML = packSvg(current.members, 42);
+  openGroupInfo();
 });
-thread.addEventListener("pointermove", (e) => {
-  if (e.pointerType === "touch") return;
-  onSwipeMove(e.clientX, e.clientY);
+
+function mentionBox() {
+  let box = document.getElementById("mention-box");
+  if (box) return box;
+  box = document.createElement("div");
+  box.id = "mention-box";
+  box.className = "mention-box hidden";
+  document.getElementById("composer").before(box);
+  return box;
+}
+
+function hideMentions() {
+  mentionBox().classList.add("hidden");
+  mentionBox().innerHTML = "";
+}
+
+function showMentions(filter) {
+  if (!current || current.type !== "group") return hideMentions();
+  const q = (filter || "").toLowerCase();
+  const members = (current.members || []).filter((m) => !q || m.name.toLowerCase().includes(q));
+  const box = mentionBox();
+  if (!members.length) return hideMentions();
+  box.innerHTML = members.map((m) => `
+    <button type="button" class="mention-row" data-mention="${escapeHtml(m.name)}">
+      ${buddySvg(m, 24)} <span>@${escapeHtml(m.name)}</span>
+    </button>`).join("");
+  box.classList.remove("hidden");
+}
+
+input.addEventListener("input", () => {
+  if (!current || current.type !== "group") return hideMentions();
+  const val = input.value;
+  const at = val.lastIndexOf("@");
+  if (at < 0) return hideMentions();
+  const after = val.slice(at + 1);
+  if (/\s/.test(after)) return hideMentions();
+  showMentions(after);
 });
-thread.addEventListener("pointerup", (e) => {
-  if (e.pointerType === "touch") return;
-  onSwipeEnd();
+
+document.addEventListener("click", (e) => {
+  const row = e.target.closest("[data-mention]");
+  if (!row) return;
+  const name = row.dataset.mention;
+  const val = input.value;
+  const at = val.lastIndexOf("@");
+  input.value = (at >= 0 ? val.slice(0, at) : val) + "@" + name + " ";
+  hideMentions();
+  input.focus();
 });
 
 ensureReplyBar();
@@ -232,11 +237,11 @@ ensureReplyBar();
 const composer = document.getElementById("composer");
 composer.onsubmit = async (e) => {
   e.preventDefault();
+  hideMentions();
   if (!current) return;
   const message = input.value.trim();
   if (!message) return;
   input.value = "";
-  mentionBox().classList.add("hidden");
   const target = replyTarget;
   setReplyTarget(null);
   const url = current.type === "group"
@@ -248,7 +253,7 @@ composer.onsubmit = async (e) => {
     ? groupBubble({ role: "user", content: message, reply_to_name: target && target.sender })
     : `<div class="bubble user">${escapeHtml(message)}</div>`);
   if (current.type === "group") {
-    const who = target ? target.sender : "El equipo";
+    const who = target ? target.sender : (message.includes("@") ? "Mención" : "El equipo");
     thread.insertAdjacentHTML("beforeend", `<div class="bubble assistant thinking" id="thinking"><div class="sender">${escapeHtml(who)} está escribiendo…</div></div>`);
   }
   thread.scrollTop = thread.scrollHeight;
@@ -271,7 +276,7 @@ composer.onsubmit = async (e) => {
       for (const item of payload.replies || []) {
         thread.insertAdjacentHTML("beforeend", groupBubble(item));
         thread.scrollTop = thread.scrollHeight;
-        await new Promise((r) => setTimeout(r, 140));
+        await new Promise((r) => setTimeout(r, 120));
       }
     } else {
       renderThread(payload.messages);
