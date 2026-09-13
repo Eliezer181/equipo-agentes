@@ -4,14 +4,28 @@ import os
 
 from openai import OpenAI
 
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+XAI_URL = "https://api.x.ai/v1"
+
 
 def client() -> OpenAI:
-    api_key = os.getenv("XAI_API_KEY", "").strip()
-    if not api_key:
-        raise RuntimeError(
-            "Falta XAI_API_KEY. Copiá .env.example a .env y pegá tu clave de https://console.x.ai"
-        )
-    return OpenAI(api_key=api_key, base_url=os.getenv("XAI_BASE_URL", "https://api.x.ai/v1"))
+    gemini = os.getenv("GEMINI_API_KEY", "").strip()
+    if gemini:
+        return OpenAI(api_key=gemini, base_url=os.getenv("GEMINI_BASE_URL", GEMINI_URL))
+
+    xai = os.getenv("XAI_API_KEY", "").strip()
+    if xai:
+        return OpenAI(api_key=xai, base_url=os.getenv("XAI_BASE_URL", XAI_URL))
+
+    raise RuntimeError(
+        "Falta GEMINI_API_KEY. Creala en https://aistudio.google.com/apikey y cargala en Fly."
+    )
+
+
+def default_model() -> str:
+    if os.getenv("GEMINI_API_KEY", "").strip():
+        return os.getenv("MODEL", "gemini-2.5-flash")
+    return os.getenv("MODEL", "grok-4.3")
 
 
 def reply(instructions: str, history: list[dict]) -> str:
@@ -21,7 +35,7 @@ def reply(instructions: str, history: list[dict]) -> str:
         if role in {"user", "assistant"} and item.get("content"):
             messages.append({"role": role, "content": item["content"]})
     response = client().chat.completions.create(
-        model=os.getenv("MODEL", "grok-4.3"),
+        model=default_model(),
         messages=messages,
         temperature=0.4,
     )
