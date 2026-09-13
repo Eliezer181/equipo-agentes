@@ -52,6 +52,10 @@ html, body {
 }
 .row.group-row { grid-template-columns: 46px minmax(0,1fr) auto; }
 .row.dragging { opacity: .45; }
+.open-spec {
+  border: 0; background: transparent; color: inherit; text-align: left;
+  padding: 0; min-width: 0; width: 100%;
+}
 .dot {
   width: 40px; height: 40px; border-radius: 50%;
   display: grid; place-items: center; font-weight: 700; color: #111; flex-shrink: 0;
