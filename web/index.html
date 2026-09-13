@@ -6,13 +6,19 @@
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Equipo</title>
-  <link rel="stylesheet" href="/static/styles.css?v=10" />
+  <link rel="stylesheet" href="/static/styles.css?v=11" />
   <style>
     .palette button{width:28px;height:28px;border-radius:50%;border:2px solid #111;padding:0;background:none;color:transparent}
     .palette button.on{outline:2px solid #fff}
     .buddy{overflow:visible}
     .buddy.sleep{opacity:.82;filter:saturate(.7)}
     .buddy.talk{filter:drop-shadow(0 0 6px #38bdf8)}
+    .row.archived{opacity:.62}
+    .chat-top{justify-content:flex-start}
+    #btn-agent-menu{margin-left:auto;width:36px;height:36px;border:0;border-radius:50%;background:#1c1c1e;color:#f4f4f5}
+    .switch{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#f4f4f5;font-size:14px}
+    .stack-actions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+    .stack-actions button{width:100%}
   </style>
 </head>
 <body>
@@ -45,6 +51,7 @@
             <div id="chat-title" class="meta"></div>
           </div>
         </button>
+        <button type="button" id="btn-agent-menu" title="Opciones">⋮</button>
       </header>
       <div id="thread" class="thread"></div>
       <form id="composer" class="composer">
@@ -97,9 +104,31 @@
         </div>
       </div>
     </div>
+    <div id="agent-modal" class="modal hidden">
+      <form id="edit-agent" class="sheet">
+        <div class="grabber"></div>
+        <h2>Agente</h2>
+        <label>Nombre<input id="edit-name" required maxlength="40" /></label>
+        <label>Rol / cargo<input id="edit-title" maxlength="40" /></label>
+        <label>Color
+          <input type="hidden" id="edit-color" />
+          <div id="edit-palette" class="palette"></div>
+        </label>
+        <label>Cómo trabaja<textarea id="edit-instructions" rows="4"></textarea></label>
+        <label class="switch">Avisarme cuando responde<input type="checkbox" id="notify-toggle" /></label>
+        <div class="stack-actions">
+          <button type="submit">Guardar cambios</button>
+          <button type="button" id="btn-clear-chat" class="ghost">Vaciar chat</button>
+          <button type="button" id="btn-archive" class="ghost">Archivar</button>
+          <button type="button" id="btn-delete-agent" class="danger">Eliminar agente</button>
+          <button type="button" id="btn-close-agent" class="ghost">Cerrar</button>
+        </div>
+      </form>
+    </div>
   </div>
-  <script src="/static/avatar.js?v=10"></script>
-  <script src="/static/app.js?v=10"></script>
-  <script src="/static/color-ui.js?v=10"></script>
+  <script src="/static/avatar.js?v=11"></script>
+  <script src="/static/app.js?v=11"></script>
+  <script src="/static/color-ui.js?v=11"></script>
+  <script src="/static/manage.js?v=11"></script>
 </body>
 </html>
