@@ -24,8 +24,25 @@ addBtn.onclick = () => {
   else modal.classList.remove("hidden");
 };
 
+const _renderList = renderList;
+renderList = function (filter) {
+  _renderList(filter);
+  if (typeof attachBuddyLife === "function") attachBuddyLife();
+};
+
+const _openChat = openChat;
+openChat = async function (id) {
+  await _openChat(id);
+  if (typeof attachBuddyLife === "function") attachBuddyLife();
+};
+
+const _openGroup = openGroup;
+openGroup = async function (id) {
+  await _openGroup(id);
+  if (typeof attachBuddyLife === "function") attachBuddyLife();
+};
+
 const createForm = document.getElementById("create");
-const oldSubmit = createForm.onsubmit;
 createForm.onsubmit = async (e) => {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(e.target).entries());
@@ -37,5 +54,15 @@ createForm.onsubmit = async (e) => {
   modal.classList.add("hidden");
   e.target.reset();
   await loadList();
+  if (created && created.id && typeof BuddyLife !== "undefined") BuddyLife.lookAtNew(created.id);
   openChat(created.id);
 };
+
+const composer = document.getElementById("composer");
+const prevComposer = composer.onsubmit;
+composer.addEventListener("submit", () => {
+  if (typeof BuddyLife !== "undefined") BuddyLife.talk(true);
+  setTimeout(() => { if (typeof BuddyLife !== "undefined") BuddyLife.talk(false); }, 2800);
+});
+
+if (typeof attachBuddyLife === "function") attachBuddyLife();
