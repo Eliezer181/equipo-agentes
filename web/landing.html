@@ -4,49 +4,214 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#050506" />
-  <title>Equipo · Agentes IA</title>
-  <link rel="stylesheet" href="/static/marketing.css?v=2" />
+  <meta name="description" content="Glou — Agentes que laburan con vos. Un equipo de agentes. A tu ritmo." />
+  <title>Glou · Agentes que laburan con vos</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/static/brand/logo-glou-256.png" />
+  <link rel="stylesheet" href="/static/marketing.css?v=3" />
 </head>
-<body>
-  <div class="wrap">
-    <nav class="nav">
-      <div class="logo">Equipo</div>
-      <a class="ghost" href="/login">Iniciar sesión</a>
+<body class="landing-page">
+  <!-- Full-bleed 3D-ish scene (CSS only) -->
+  <div class="scene" aria-hidden="true">
+    <div class="scene-layer scene-layer--far"></div>
+    <div class="scene-layer scene-layer--mid"></div>
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <div class="orb orb-c"></div>
+    <div class="ring ring-a"></div>
+    <div class="ring ring-b"></div>
+  </div>
+
+  <div class="wrap wrap-landing">
+    <!-- 1. Nav -->
+    <nav class="nav nav-landing">
+      <a class="brand-lockup" href="#top" aria-label="Glou — inicio">
+        <span class="logo-live logo-live--nav" data-logo>
+          <img src="/static/brand/logo-glou-256.png" width="36" height="36" alt="" decoding="async" />
+          <span class="logo-eyes" aria-hidden="true"></span>
+        </span>
+        <span class="logo-word">Glou</span>
+      </a>
+      <div class="nav-actions">
+        <a class="ghost" href="/login">Iniciar sesión</a>
+        <a class="btn btn-primary btn-sm" href="/registro">Empezar</a>
+      </div>
     </nav>
 
+    <!-- 2. Hero -->
     <section class="hero" id="top">
-      <h1>Un equipo de agentes. A tu ritmo.</h1>
-      <p>Especialistas que ejecutan. Conversaciones que avanzan. Potencia cuando la necesitás.</p>
-      <div class="ctas">
+      <div class="hero-visual" data-reveal>
+        <div class="hero-logo-stage">
+          <div class="logo-live logo-live--hero" data-logo data-parallax>
+            <picture>
+              <source srcset="/static/brand/logo-glou-512.webp" type="image/webp" />
+              <img src="/static/brand/logo-glou-512.png" width="180" height="180" alt="Glou" decoding="async" />
+            </picture>
+            <span class="logo-eyes" aria-hidden="true"></span>
+            <span class="logo-glow" aria-hidden="true"></span>
+          </div>
+          <video
+            class="hero-video hidden"
+            id="hero-video"
+            muted
+            playsinline
+            autoplay
+            loop
+            preload="metadata"
+            poster="/static/brand/logo-glou-512.png"
+            aria-label="Glou en movimiento"
+          >
+            <source src="/static/brand/hero-muted.mp4" type="video/mp4" />
+          </video>
+        </div>
+      </div>
+      <h1 class="hero-headline" data-reveal>Glou.</h1>
+      <p class="hero-sub" data-reveal>Un equipo de agentes. A tu ritmo.</p>
+      <div class="ctas" data-reveal>
         <a class="btn btn-primary" href="/registro">Empezar</a>
-        <a class="btn btn-secondary" href="#planes">Conocer el plan</a>
+        <a class="btn btn-secondary" href="#como">Ver cómo funciona</a>
       </div>
     </section>
 
-    <section class="section">
-      <h2>Lo esencial</h2>
+    <!-- 3. Trust / tagline -->
+    <section class="section trust-line" data-reveal>
+      <p class="tagline">Agentes que laburan con vos.</p>
+    </section>
+
+    <!-- 4. Qué es -->
+    <section class="section" id="que-es" data-reveal>
+      <h2>Varios especialistas. Un solo hilo. Sin fricción.</h2>
       <div class="cards">
-        <div class="card"><h3>Varios especialistas, un solo hilo</h3><p>Trabajo coordinado sin cambiar de contexto.</p></div>
-        <div class="card"><h3>Profundidad cuando el tema lo pide</h3><p>Más potencia en los turnos que la requieren.</p></div>
-        <div class="card"><h3>Control total de tu espacio</h3><p>Tu equipo, tus reglas, tu ritmo.</p></div>
+        <div class="card" data-reveal>
+          <h3>Especialistas que se coordinan</h3>
+          <p>Cada uno aporta lo suyo. Vos seguís en la misma conversación.</p>
+        </div>
+        <div class="card" data-reveal>
+          <h3>Un hilo, cero contexto perdido</h3>
+          <p>No saltás de herramienta en herramienta. El equipo te sigue.</p>
+        </div>
+        <div class="card" data-reveal>
+          <h3>Sin fricción</h3>
+          <p>Pedís. Avanza. Listo. El ritmo lo marcás vos.</p>
+        </div>
       </div>
     </section>
 
-    <section class="section" id="planes">
-      <h2>Plan</h2>
-      <div class="offer">
-        <div>Incluido</div>
-        <div class="price" style="font-size:1.15rem;margin-top:4px">5 créditos para comenzar</div>
-        <p style="margin-top:14px">Pro — 30 USDT / mes · TRC20</p>
-        <p style="opacity:.75;font-size:.88em;margin-top:6px">El plan Pro se ofrece al completar el cupo incluido.</p>
-        <a class="btn btn-primary" href="/registro" style="margin-top:8px">Crear cuenta</a>
+    <!-- 5. Cómo se siente -->
+    <section class="section scenes" id="como">
+      <h2 data-reveal>Cómo se siente</h2>
+      <div class="scroll-scenes">
+        <article class="scroll-scene" data-reveal>
+          <div class="scene-chip">01 · Chat</div>
+          <h3>Empezás a hablar</h3>
+          <p>Contás qué necesitás. Glou escucha y arma el equipo.</p>
+          <div class="scene-mock scene-mock--chat" aria-hidden="true">
+            <div class="bubble bubble-user">Necesito un brief y un plan corto.</div>
+            <div class="bubble bubble-bot">Dale. Lo armamos juntos.</div>
+          </div>
+        </article>
+        <article class="scroll-scene" data-reveal>
+          <div class="scene-chip">02 · Especialista</div>
+          <h3>Entra quien hace falta</h3>
+          <p>El especialista correcto toma el turno. Sin que vos lo busques.</p>
+          <div class="scene-mock scene-mock--spec" aria-hidden="true">
+            <div class="spec-row"><span class="dot"></span> Estrategia</div>
+            <div class="spec-row active"><span class="dot"></span> Redacción</div>
+            <div class="spec-row"><span class="dot"></span> Revisión</div>
+          </div>
+        </article>
+        <article class="scroll-scene" data-reveal>
+          <div class="scene-chip">03 · Resultado</div>
+          <h3>Salís con algo concreto</h3>
+          <p>Un entregable claro. Listo para usar o iterar.</p>
+          <div class="scene-mock scene-mock--out" aria-hidden="true">
+            <div class="out-bar"></div>
+            <div class="out-bar short"></div>
+            <div class="out-bar mid"></div>
+          </div>
+        </article>
       </div>
     </section>
 
-    <section class="footer-cta">
-      <p>Listo cuando vos lo estás.</p>
+    <!-- 6. Potencia -->
+    <section class="section potencia" id="potencia" data-reveal>
+      <h2>Cuando el tema lo pide, Glou profundiza.</h2>
+      <p class="section-lead">Más foco. Más contexto. Más potencia en los turnos que la requieren — sin interrumpir tu flujo.</p>
+    </section>
+
+    <!-- 7. Para quién -->
+    <section class="section" id="para-quien">
+      <h2 data-reveal>Para quién</h2>
+      <div class="cards profiles">
+        <div class="card" data-reveal>
+          <h3>Quien construye solo</h3>
+          <p>Fundadores y freelancers que necesitan un equipo sin armarlo.</p>
+        </div>
+        <div class="card" data-reveal>
+          <h3>Quien opera bajo presión</h3>
+          <p>Operaciones, soporte y delivery que no pueden perder el hilo.</p>
+        </div>
+        <div class="card" data-reveal>
+          <h3>Quien piensa en voz alta</h3>
+          <p>Creativos y estrategas que quieren especialistas a un mensaje.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Planes -->
+    <section class="section" id="planes" data-reveal>
+      <h2>Planes</h2>
+      <div class="plans">
+        <div class="offer offer-free">
+          <div class="plan-label">Incluido</div>
+          <div class="price">5 créditos</div>
+          <p>Para comenzar. Sin tarjeta.</p>
+          <a class="btn btn-secondary" href="/registro">Crear cuenta</a>
+        </div>
+        <div class="offer offer-pro">
+          <div class="plan-label">Pro</div>
+          <div class="price">30 USDT <span class="price-unit">/ mes</span></div>
+          <p>Red TRC20. Confirmación manual.</p>
+          <a class="btn btn-primary" href="/registro">Empezar</a>
+        </div>
+      </div>
+      <p class="plan-micro">Pro se ofrece al completar el cupo incluido.</p>
+    </section>
+
+    <!-- 9. FAQ -->
+    <section class="section faq" id="faq">
+      <h2 data-reveal>Preguntas cortas</h2>
+      <details class="faq-item" data-reveal>
+        <summary>¿Qué incluye el cupo gratuito?</summary>
+        <p>5 créditos para probar Glou. Sin tarjeta. Cuando se agotan, podés pasar a Pro.</p>
+      </details>
+      <details class="faq-item" data-reveal>
+        <summary>¿Cómo pago Pro?</summary>
+        <p>30 USDT por mes en red TRC20 (Tron). Solo esa red — no ERC20 ni otras.</p>
+      </details>
+      <details class="faq-item" data-reveal>
+        <summary>¿Necesito instalar algo?</summary>
+        <p>No. Entrá desde el navegador, registrate y listo.</p>
+      </details>
+    </section>
+
+    <!-- 10. Cierre -->
+    <section class="footer-cta" data-reveal>
+      <div class="logo-live logo-live--idle" data-logo>
+        <img src="/static/brand/logo-glou-256.png" width="64" height="64" alt="" decoding="async" />
+        <span class="logo-eyes" aria-hidden="true"></span>
+      </div>
+      <p class="close-line">Listo cuando vos lo estás.</p>
       <a class="btn btn-primary" href="/registro">Empezar</a>
     </section>
+
+    <footer class="site-foot">
+      <span>Glou</span>
+      <span class="sep">·</span>
+      <span>Agentes que laburan con vos.</span>
+    </footer>
   </div>
+
+  <script src="/static/glou.js?v=1" defer></script>
 </body>
 </html>
