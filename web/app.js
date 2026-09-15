@@ -32,7 +32,9 @@ let toastTimer = null;
 function syncHeavyUi() {
   const on = !!(heavyToggle && heavyToggle.checked);
   if (heavyBar) heavyBar.classList.toggle("on", on);
-  if (heavyHint) heavyHint.textContent = on ? "Base44 activo" : "Gemini";
+  const heavyLabel = document.getElementById("heavy-label");
+  if (heavyLabel) heavyLabel.textContent = on ? "Base44" : "Gemini";
+  if (heavyHint) heavyHint.textContent = on ? "Respuestas más profundas · usa créditos" : "Más liviano · sin créditos Base44";
 }
 
 function showToast(text, kind) {
