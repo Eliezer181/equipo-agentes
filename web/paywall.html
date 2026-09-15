@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050506" />
+  <title>Plan Pro · Equipo</title>
+  <link rel="stylesheet" href="/static/marketing.css?v=1" />
+</head>
+<body>
+  <div class="wrap">
+    <nav class="nav">
+      <a class="logo" href="/">Equipo</a>
+      <a class="ghost" href="/">Volver al chat</a>
+    </nav>
+
+    <div class="auth-card">
+      <h1>Se te acabaron los créditos</h1>
+      <p class="sub">Activá Pro por US$30 / mes y seguí sin cortes.</p>
+
+      <div class="pay-amount">30 USDT</div>
+      <div class="pay-net">Red: TRX Tron (TRC20) — no uses ERC20 ni otra red</div>
+
+      <div class="warn">Si mandás por otra red, el pago se puede perder. Solo TRC20.</div>
+
+      <label>Dirección de depósito (TRC20)</label>
+      <div class="addr" id="pay-address">Cargando…</div>
+      <div class="qr-wrap" id="qr-box" aria-label="QR de la dirección USDT TRC20">
+        <canvas id="qr-canvas" width="176" height="176"></canvas>
+      </div>
+      <p class="sub" style="text-align:center;margin-top:0">Escaneá el QR o pegá la dirección en tu wallet TRC20</p>
+
+      <div class="row-btns">
+        <button type="button" class="btn btn-secondary" id="btn-copy">Copiar dirección</button>
+        <button type="button" class="btn btn-primary" id="btn-paid">Ya pagué</button>
+      </div>
+      <p id="pay-msg" class="msg hidden"></p>
+      <div id="pending-box" class="pending hidden">Pago en revisión. Te avisamos cuando esté activo (no se activa solo con el click).</div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <script src="/static/paywall.js?v=1"></script>
+</body>
+</html>

@@ -454,8 +454,13 @@ document.getElementById("composer").onsubmit = async (e) => {
       }),
     });
     const payload = await res.json();
+    if (res.status === 402 || payload.error_code === "credits_exhausted" || (payload.detail && payload.detail.error_code === "credits_exhausted")) {
+      location.href = "/paywall";
+      return;
+    }
     if (!res.ok) {
-      thread.insertAdjacentHTML("beforeend", `<div class="bubble assistant">Error: ${escapeHtml(payload.detail || "no se pudo responder")}</div>`);
+      const detail = typeof payload.detail === "string" ? payload.detail : (payload.detail && payload.detail.message) || "no se pudo responder";
+      thread.insertAdjacentHTML("beforeend", `<div class="bubble assistant">Error: ${escapeHtml(detail)}</div>`);
       return;
     }
     if (payload.provider === "gemini_fallback") {

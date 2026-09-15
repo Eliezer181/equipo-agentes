@@ -6,3 +6,8 @@ __pycache__/
 .DS_Store
 data/conversations/
 !data/conversations/.gitkeep
+
+data/users.json
+data/sessions.json
+data/base44_runtime.json
+data/base44_usage.json
