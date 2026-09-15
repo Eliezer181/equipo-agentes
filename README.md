@@ -36,3 +36,14 @@ Routing:
 Recomendación del Jefe: Base44 primero; Gemini como respaldo.
 
 Si Base44 falla (timeout, sin créditos, error HTTP), el backend hace **fallback automático a Gemini** y la respuesta incluye `"provider": "gemini_fallback"` para que el front muestre el toast.
+
+
+## Rotar Base44 (panel admin)
+
+Cuando se acaben los créditos de una cuenta:
+
+1. Abrí `https://TU-APP.fly.dev/admin/base44`
+2. Entrá con `ADMIN_TOKEN` (secret de Fly)
+3. Pegá la Base URL y API key de la otra cuenta → Guardar
+
+La key se guarda en el volumen (`data/base44_runtime.json`), no en el repo. El chat la usa al instante. "Volver a Fly" borra el override.

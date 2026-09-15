@@ -4,11 +4,12 @@ import re
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from app import base44_client
 from app.llm import LAST_PROVIDER, _models, _using_gemini, reply, reply_messages_routed
 from contextvars import ContextVar
 from app.media import attach_media
@@ -467,3 +468,60 @@ def api_group_chat(group_id: str, payload: ChatIn):
     if not replies:
         raise HTTPException(status_code=500, detail=str(last_error or "Nadie pudo responder"))
     return {"replies": replies, "messages": group["messages"], "provider": LAST_PROVIDER.get()}
+
+
+def _require_admin(request: Request) -> None:
+    import os
+    expected = (os.getenv("ADMIN_TOKEN") or "").strip()
+    if not expected:
+        raise HTTPException(status_code=503, detail="ADMIN_TOKEN no configurado en el servidor")
+    got = (request.headers.get("X-Admin-Token") or "").strip()
+    if not got or got != expected:
+        raise HTTPException(status_code=401, detail="Clave de admin incorrecta")
+
+
+class Base44AdminIn(BaseModel):
+    api_key: str | None = Field(default=None, max_length=500)
+    base_url: str | None = Field(default=None, max_length=500)
+    enabled: bool | None = None
+
+
+@app.get("/admin/base44")
+def admin_base44_page():
+    path = WEB / "admin-base44.html"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Falta admin-base44.html")
+    return FileResponse(path)
+
+
+@app.get("/api/admin/base44")
+def api_admin_base44_get(request: Request):
+    _require_admin(request)
+    return base44_client.status_public()
+
+
+@app.put("/api/admin/base44")
+def api_admin_base44_put(payload: Base44AdminIn, request: Request):
+    _require_admin(request)
+    key = (payload.api_key or "").strip() or None
+    url = (payload.base_url or "").strip() or None
+    if key is None and url is None and payload.enabled is None:
+        raise HTTPException(status_code=400, detail="Nada para guardar")
+    base44_client.save_runtime(api_key=key, base_url=url, enabled=payload.enabled)
+    return base44_client.status_public()
+
+
+@app.delete("/api/admin/base44")
+def api_admin_base44_delete(request: Request):
+    _require_admin(request)
+    path = base44_client.runtime_config_path()
+    if path.exists():
+        path.unlink()
+    conv = path.parent / "base44_conversations.json"
+    if conv.exists():
+        try:
+            conv.unlink()
+        except Exception:
+            pass
+    return base44_client.status_public()
+
