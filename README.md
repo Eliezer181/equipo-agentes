@@ -29,10 +29,10 @@ fly secrets set \
 
 Routing:
 
-- Por defecto todo usa Gemini (`LLM_PROVIDER=gemini`).
-- Para forzar Base44 en toda la app: `LLM_PROVIDER=base44` (con `BASE44_ENABLED=1`).
-- Por turno: el body del chat acepta `"provider": "base44"` en `POST /api/specialists/{id}/chat` y `POST /api/groups/{id}/chat`.
+- Por defecto la app usa **Base44** cuando `BASE44_ENABLED=1` (o `LLM_PROVIDER=base44`).
+- Si Base44 falla → fallback automático a Gemini (`provider: gemini_fallback`).
+- Para forzar solo Gemini: `LLM_PROVIDER=gemini` o por turno `"provider":"gemini"`.
 
-Recomendación: dejá Gemini para el chat diario y usá `provider: "base44"` solo cuando haga falta más potencia.
+Recomendación del Jefe: Base44 primero; Gemini como respaldo.
 
 Si Base44 falla (timeout, sin créditos, error HTTP), el backend hace **fallback automático a Gemini** y la respuesta incluye `"provider": "gemini_fallback"` para que el front muestre el toast.
