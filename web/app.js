@@ -22,6 +22,33 @@ function timeLabel(iso) {
   return d.toLocaleTimeString("es-PY", { hour: "numeric", minute: "2-digit" });
 }
 
+
+const heavyToggle = document.getElementById("heavy-toggle");
+const heavyBar = document.getElementById("heavy-bar");
+const heavyHint = document.getElementById("heavy-hint");
+const toastEl = document.getElementById("toast");
+let toastTimer = null;
+
+function syncHeavyUi() {
+  const on = !!(heavyToggle && heavyToggle.checked);
+  if (heavyBar) heavyBar.classList.toggle("on", on);
+  if (heavyHint) heavyHint.textContent = on ? "Usando Base44 (respuesta más profunda)" : "Gemini";
+}
+
+function showToast(text, kind) {
+  if (!toastEl) return;
+  toastEl.textContent = text;
+  toastEl.classList.toggle("heavy", kind === "heavy");
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 3200);
+}
+
+if (heavyToggle) {
+  heavyToggle.addEventListener("change", syncHeavyUi);
+  syncHeavyUi();
+}
+
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -403,12 +430,20 @@ document.getElementById("composer").onsubmit = async (e) => {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({
+        message,
+        provider: (heavyToggle && heavyToggle.checked) ? "base44" : undefined,
+      }),
     });
     const payload = await res.json();
     if (!res.ok) {
       thread.insertAdjacentHTML("beforeend", `<div class="bubble assistant">Error: ${escapeHtml(payload.detail || "no se pudo responder")}</div>`);
       return;
+    }
+    if (payload.provider === "base44") {
+      showToast("Usando Base44 (respuesta más profunda)", "heavy");
+    } else if (payload.provider === "gemini_fallback") {
+      showToast("Base44 no respondió. Seguimos con Gemini.");
     }
     if (current.type === "group") {
       const thinking = document.getElementById("thinking");

@@ -466,4 +466,4 @@ def api_group_chat(group_id: str, payload: ChatIn):
     save_group(group)
     if not replies:
         raise HTTPException(status_code=500, detail=str(last_error or "Nadie pudo responder"))
-    return {"replies": replies, "messages": group["messages"]}
+    return {"replies": replies, "messages": group["messages"], "provider": LAST_PROVIDER.get()}

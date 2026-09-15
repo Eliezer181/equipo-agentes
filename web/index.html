@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Equipo</title>
-  <link rel="stylesheet" href="/static/styles.css?v=17" />
+  <link rel="stylesheet" href="/static/styles.css?v=18" />
   <style>
     .palette button{width:28px;height:28px;border-radius:50%;border:2px solid #111;padding:0}
     .palette button.on{outline:2px solid #fff}
@@ -31,6 +31,15 @@
     .quote{font-size:11px;color:#93c5fd;margin-bottom:4px}
     .bubble.swipeable{transition:transform .12s ease;touch-action:pan-y}
     #btn-at{width:36px;height:36px;border:0;border-radius:50%;background:#1c1c1e;color:#f4f4f5;font-weight:700;flex-shrink:0}
+    .heavy-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 12px;background:#0a0a0c;border-top:1px solid #1c1c1e;font-size:12px;color:#a1a1aa}
+    .heavy-bar.on{color:#fbbf24;background:#14110a}
+    .heavy-bar label{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+    .heavy-bar input{accent-color:#f59e0b}
+    .heavy-hint{color:#71717a;font-size:11px}
+    .heavy-bar.on .heavy-hint{color:#fbbf24}
+    #toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;z-index:50;max-width:90%;background:#1c1c1e;color:#f4f4f5;border:1px solid #333;border-radius:12px;padding:10px 14px;font-size:13px;transition:opacity .2s,transform .2s;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+    #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    #toast.heavy{border-color:#f59e0b;color:#fde68a}
   </style>
 </head>
 <body>
@@ -66,12 +75,17 @@
         <button type="button" id="btn-agent-menu" title="Opciones">⋮</button>
       </header>
       <div id="thread" class="thread"></div>
+      <div id="heavy-bar" class="heavy-bar" title="Usa Base44 solo para turnos que necesiten más potencia">
+        <label><input type="checkbox" id="heavy-toggle" /> Modo pesado</label>
+        <span id="heavy-hint" class="heavy-hint">Gemini</span>
+      </div>
       <form id="composer" class="composer">
         <button type="button" id="btn-at" title="Mencionar">@</button>
         <input id="input" autocomplete="off" placeholder="Mensaje" enterkeyhint="send" />
         <button type="submit">Enviar</button>
       </form>
     </section>
+    <div id="toast" role="status" aria-live="polite"></div>
     <div id="modal" class="modal hidden">
       <form id="create" class="sheet">
         <div class="grabber"></div>
@@ -140,9 +154,9 @@
       </form>
     </div>
   </div>
-  <script src="/static/avatar.js?v=17"></script>
-  <script src="/static/app.js?v=17"></script>
-  <script src="/static/color-ui.js?v=17"></script>
-  <script src="/static/group-ui.js?v=17"></script>
+  <script src="/static/avatar.js?v=18"></script>
+  <script src="/static/app.js?v=18"></script>
+  <script src="/static/color-ui.js?v=18"></script>
+  <script src="/static/group-ui.js?v=18"></script>
 </body>
 </html>
