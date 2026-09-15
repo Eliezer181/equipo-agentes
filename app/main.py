@@ -500,6 +500,12 @@ def api_admin_base44_get(request: Request):
     return base44_client.status_public()
 
 
+@app.get("/api/admin/base44/usage")
+def api_admin_base44_usage(request: Request):
+    _require_admin(request)
+    return base44_client.usage_public()
+
+
 @app.put("/api/admin/base44")
 def api_admin_base44_put(payload: Base44AdminIn, request: Request):
     _require_admin(request)

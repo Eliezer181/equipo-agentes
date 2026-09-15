@@ -42,6 +42,17 @@
         <div class="row"><span class="muted">API key</span><span id="stKey">—</span></div>
       </div>
 
+      <div class="card" id="usageCard">
+        <div class="row"><strong>Saldo / consumo Base44</strong><button type="button" id="btnRefresh" class="ghost" style="width:auto;margin:0;padding:6px 10px;font-size:12px">Actualizar</button></div>
+        <div class="row"><span class="muted">Hoy (esta app)</span><span id="uToday">—</span></div>
+        <div class="row"><span class="muted">Restante hoy (est.)</span><span id="uDailyRem">—</span></div>
+        <div class="row"><span class="muted">Total trackeado</span><span id="uTotal">—</span></div>
+        <div class="row"><span class="muted">Restante mes (est.)</span><span id="uMonthRem">—</span></div>
+        <div class="row"><span class="muted">Llamadas</span><span id="uCalls">—</span></div>
+        <p id="uNote" class="muted" style="font-size:12px;margin:10px 0 0"></p>
+        <div id="uEvents" style="margin-top:12px;font-size:12px;color:#a1a1aa"></div>
+      </div>
+
       <div class="card">
         <label>Nueva Base URL<input id="baseUrl" type="url" placeholder="https://app.base44.com/api/agents/..." /></label>
         <label>Nueva API key<input id="apiKey" type="password" autocomplete="off" placeholder="Pegá la key de la otra cuenta" /></label>
@@ -82,9 +93,27 @@
       document.getElementById("stKey").textContent = data.api_key_masked || "(vacía)";
       if (data.base_url) document.getElementById("baseUrl").value = data.base_url;
       document.getElementById("enabled").checked = data.enabled !== false;
+      fillUsage(data.usage || {});
       document.getElementById("gate").classList.add("hidden");
       document.getElementById("panel").classList.remove("hidden");
     }
+
+    function fillUsage(u) {
+      const fmt = (n) => (n === undefined || n === null) ? "—" : String(n);
+      document.getElementById("uToday").textContent = fmt(u.tracked_today_credits) + " / " + fmt(u.daily_limit_ref);
+      document.getElementById("uDailyRem").textContent = fmt(u.estimated_daily_remaining);
+      document.getElementById("uTotal").textContent = fmt(u.tracked_total_credits) + " / " + fmt(u.monthly_limit_ref);
+      document.getElementById("uMonthRem").textContent = fmt(u.estimated_monthly_remaining);
+      document.getElementById("uCalls").textContent = fmt(u.tracked_calls);
+      document.getElementById("uNote").textContent = u.note || "";
+      const ev = (u.recent || []).slice(0, 8).map((e) => {
+        const when = (e.at || "").replace("T", " ").slice(0, 19);
+        return `<div class="row"><span>${when} · ${e.scope || ""}</span><span>${e.credits} cr</span></div>`;
+      }).join("");
+      document.getElementById("uEvents").innerHTML = ev || '<span class="muted">Sin consumos registrados aún.</span>';
+    }
+
+    document.getElementById("btnRefresh").onclick = () => loadStatus().catch((e) => showMsg(e.message || "Error", false));
 
     document.getElementById("btnUnlock").onclick = async () => {
       token = tokenEl.value.trim();
@@ -92,6 +121,7 @@
       try {
         await loadStatus();
         sessionStorage.setItem("ea_admin_token", token);
+        startUsagePoll();
       } catch (e) {
         gateErr.textContent = e.message || "Error";
         gateErr.classList.remove("hidden");
@@ -136,8 +166,17 @@
       await loadStatus();
     };
 
+    let usageTimer = null;
+    function startUsagePoll() {
+      clearInterval(usageTimer);
+      usageTimer = setInterval(() => {
+        if (!document.getElementById("panel").classList.contains("hidden")) {
+          loadStatus().catch(() => {});
+        }
+      }, 15000);
+    }
     if (token) {
-      loadStatus().catch(() => sessionStorage.removeItem("ea_admin_token"));
+      loadStatus().then(startUsagePoll).catch(() => sessionStorage.removeItem("ea_admin_token"));
     }
   </script>
 </body>

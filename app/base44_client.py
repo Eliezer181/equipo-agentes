@@ -90,14 +90,16 @@ def status_public() -> dict:
     key = _key()
     base = _base()
     source = "runtime" if rt.get("api_key") or rt.get("base_url") else "env"
-    return {
+    out = {
         "enabled": enabled(),
         "base_url": base,
         "api_key_masked": mask_key(key),
         "has_api_key": bool(key),
         "source": source,
         "runtime_enabled": rt.get("enabled"),
+        "usage": usage_public(),
     }
+    return out
 
 
 def _request(method: str, url: str, body: dict | None = None) -> dict:
@@ -158,6 +160,79 @@ def conversation_id_for(scope: str) -> str:
     return cid
 
 
+
+def usage_path() -> Path:
+    return _data_dir() / "base44_usage.json"
+
+
+def _today() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def load_usage() -> dict:
+    p = usage_path()
+    if not p.exists():
+        return {"total_credits": 0.0, "calls": 0, "by_day": {}, "events": []}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {"total_credits": 0.0, "calls": 0, "by_day": {}, "events": []}
+    except Exception:
+        return {"total_credits": 0.0, "calls": 0, "by_day": {}, "events": []}
+
+
+def record_usage(credits: float, scope: str = "", meta: dict | None = None) -> dict:
+    data = load_usage()
+    credits = float(credits or 0)
+    day = _today()
+    data["total_credits"] = float(data.get("total_credits") or 0) + credits
+    data["calls"] = int(data.get("calls") or 0) + 1
+    by_day = data.setdefault("by_day", {})
+    by_day[day] = float(by_day.get(day) or 0) + credits
+    events = data.setdefault("events", [])
+    from datetime import datetime, timezone
+    events.append({
+        "at": datetime.now(timezone.utc).isoformat(),
+        "credits": credits,
+        "scope": scope,
+        **(meta or {}),
+    })
+    data["events"] = events[-200:]
+    usage_path().write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    return data
+
+
+def usage_public() -> dict:
+    data = load_usage()
+    day = _today()
+    # Free-plan reference from Base44 docs (message credits)
+    daily_limit = float(os.getenv("BASE44_DAILY_LIMIT", "5") or 5)
+    monthly_limit = float(os.getenv("BASE44_MONTHLY_LIMIT", "25") or 25)
+    today = float((data.get("by_day") or {}).get(day) or 0)
+    total = float(data.get("total_credits") or 0)
+    return {
+        "tracked_total_credits": round(total, 4),
+        "tracked_calls": int(data.get("calls") or 0),
+        "tracked_today_credits": round(today, 4),
+        "daily_limit_ref": daily_limit,
+        "monthly_limit_ref": monthly_limit,
+        "estimated_daily_remaining": max(0.0, round(daily_limit - today, 4)),
+        "estimated_monthly_remaining": max(0.0, round(monthly_limit - total, 4)),
+        "note": "Consumo medido por esta app (credits_charged). El saldo oficial de Base44 puede incluir uso web; Monitoring API requiere token Enterprise.",
+        "recent": list(reversed((data.get("events") or [])[-15:])),
+    }
+
+
+def extract_credits(result: dict) -> float:
+    usage = result.get("usage") if isinstance(result, dict) else None
+    if isinstance(usage, dict) and usage.get("credits_charged") is not None:
+        try:
+            return float(usage.get("credits_charged") or 0)
+        except Exception:
+            return 0.0
+    return 0.0
+
+
 def reply(instructions: str, history: list[dict], scope: str = "default") -> str:
     if not enabled():
         raise RuntimeError("Base44 no está habilitado (BASE44_ENABLED + key + base URL)")
@@ -187,4 +262,9 @@ def reply(instructions: str, history: list[dict], scope: str = "default") -> str
         text = (result["messages"][-1].get("content") or "").strip()
     if not text:
         raise RuntimeError("Base44 respondió vacío")
+    charged = extract_credits(result)
+    try:
+        record_usage(charged, scope=scope)
+    except Exception:
+        pass
     return text
