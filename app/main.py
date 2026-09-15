@@ -9,7 +9,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app.llm import _models, _using_gemini, reply, reply_messages
+from app.llm import LAST_PROVIDER, _models, _using_gemini, reply, reply_messages_routed
+from contextvars import ContextVar
 from app.media import attach_media
 from app.store import (
     _now,
@@ -43,6 +44,7 @@ app = FastAPI(title="Equipo de agentes")
 app.mount("/static", StaticFiles(directory=WEB), name="static")
 
 GROUP_HISTORY = 12
+_PROVIDER: ContextVar[str | None] = ContextVar("llm_provider", default=None)
 
 MEDIA_HINT = (
     "Si te piden una foto, imagen o enlace, incluí una URL http real "
@@ -71,6 +73,8 @@ class ArchiveIn(BaseModel):
 class ChatIn(BaseModel):
     message: str = Field(min_length=1, max_length=8000)
     reply_to: str | None = None
+    # Optional: "gemini" (default) or "base44" for heavy turns. Needs BASE44_* secrets.
+    provider: str | None = Field(default=None, max_length=16)
 
 
 class GroupIn(BaseModel):
@@ -198,13 +202,18 @@ def api_chat(specialist_id: str, payload: ChatIn):
     user_text = payload.message.strip()
     messages.append({"role": "user", "content": user_text, "at": _now()})
     try:
-        text = reply(spec["instructions"] + "\n\n" + MEDIA_HINT, messages)
+        text = reply(
+            spec["instructions"] + "\n\n" + MEDIA_HINT,
+            messages,
+            provider=payload.provider,
+            scope=f"specialist:{specialist_id}",
+        )
         text = attach_media(user_text, text)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     messages.append({"role": "assistant", "content": text, "at": _now()})
     save_messages(specialist_id, messages)
-    return {"reply": text, "messages": messages}
+    return {"reply": text, "messages": messages, "provider": LAST_PROVIDER.get()}
 
 
 def _clean_reply(text: str, name: str, other_names: list[str] | None = None) -> str:
@@ -313,7 +322,12 @@ def _speak(member: dict, group: dict, turn: dict | None = None) -> str:
             # Temperatura baja en chats grupales: menos creatividad, más apego
             # a las instrucciones de identidad (evita que un agente "derive"
             # hacia el nombre o el rol de otro compañero).
-            text = reply_messages(_group_llm_messages(member, group, turn), temperature=0.2)
+            text = reply_messages_routed(
+                _group_llm_messages(member, group, turn),
+                temperature=0.2,
+                provider=_PROVIDER.get(),
+                scope=f"group:{group.get('id', 'unknown')}:{member['id']}",
+            )
             return _clean_reply(text, member["name"], other_names)
         except Exception as exc:
             last_error = exc
@@ -386,6 +400,7 @@ def api_group_chat(group_id: str, payload: ChatIn):
         raise HTTPException(status_code=404, detail="No existe ese grupo")
     if not group.get("members"):
         raise HTTPException(status_code=400, detail="El grupo no tiene integrantes")
+    _PROVIDER.set(payload.provider)
     user_text = payload.message.strip()
     target = speakers_for(group, payload)
     reply_name = target[0]["name"] if payload.reply_to and target else ""
