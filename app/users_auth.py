@@ -62,8 +62,8 @@ def save_sessions(data: dict) -> None:
 def register(email: str, password: str) -> dict:
     email = (email or "").strip().lower()
     password = password or ""
-    if "@" not in email or len(password) < 6:
-        raise ValueError("Email o contraseña inválidos (mín. 6 caracteres)")
+    if "@" not in email or len(password) < 8:
+        raise ValueError("Email o contraseña inválidos (mín. 8 caracteres)")
     users = list_users()
     if email in users:
         raise ValueError("Ese email ya está registrado")

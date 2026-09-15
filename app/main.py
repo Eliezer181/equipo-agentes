@@ -177,7 +177,7 @@ def _set_session_cookie(response: Response, sid: str) -> None:
 
 class AuthIn(BaseModel):
     email: str = Field(min_length=3, max_length=120)
-    password: str = Field(min_length=6, max_length=200)
+    password: str = Field(min_length=8, max_length=200)
 
 
 @app.post("/api/auth/register")
