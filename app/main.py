@@ -4,12 +4,12 @@ import re
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app import base44_client
+from app import base44_client, billing, users_auth
 from app.llm import LAST_PROVIDER, _models, _using_gemini, reply, reply_messages_routed
 from contextvars import ContextVar
 from app.media import attach_media
@@ -127,8 +127,110 @@ def version():
 
 
 @app.get("/")
-def home():
-    return FileResponse(WEB / "index.html")
+def home(request: Request):
+    sid = request.cookies.get(users_auth.COOKIE)
+    user = users_auth.user_from_session(sid)
+    if user:
+        return FileResponse(WEB / "index.html")
+    return RedirectResponse(url="/landing", status_code=302)
+
+
+@app.get("/landing")
+def landing_page():
+    return FileResponse(WEB / "landing.html")
+
+
+@app.get("/registro")
+@app.get("/login")
+def auth_page():
+    return FileResponse(WEB / "auth.html")
+
+
+@app.get("/paywall")
+def paywall_page():
+    return FileResponse(WEB / "paywall.html")
+
+
+def _current_user(request: Request) -> dict | None:
+    return users_auth.user_from_session(request.cookies.get(users_auth.COOKIE))
+
+
+def _require_user(request: Request) -> dict:
+    user = _current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Tenés que iniciar sesión")
+    return user
+
+
+def _set_session_cookie(response: Response, sid: str) -> None:
+    secure = True  # Fly serves HTTPS
+    response.set_cookie(
+        users_auth.COOKIE,
+        sid,
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 30,
+        path="/",
+    )
+
+
+class AuthIn(BaseModel):
+    email: str = Field(min_length=3, max_length=120)
+    password: str = Field(min_length=6, max_length=200)
+
+
+@app.post("/api/auth/register")
+def api_register(payload: AuthIn, response: Response):
+    try:
+        user = users_auth.register(payload.email, payload.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    sid = users_auth.create_session(user["email"])
+    _set_session_cookie(response, sid)
+    return {"ok": True, "user": user}
+
+
+@app.post("/api/auth/login")
+def api_login(payload: AuthIn, response: Response):
+    try:
+        user = users_auth.login(payload.email, payload.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    sid = users_auth.create_session(user["email"])
+    _set_session_cookie(response, sid)
+    return {"ok": True, "user": user}
+
+
+@app.post("/api/auth/logout")
+def api_logout(request: Request, response: Response):
+    users_auth.destroy_session(request.cookies.get(users_auth.COOKIE))
+    response.delete_cookie(users_auth.COOKIE, path="/")
+    return {"ok": True}
+
+
+@app.get("/api/auth/me")
+def api_me(request: Request):
+    user = _current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Sin sesión")
+    return user
+
+
+@app.get("/api/billing/config")
+def api_billing_config(request: Request):
+    user = _current_user(request)
+    cfg = billing.config_for(user)
+    if not cfg.get("usdt_address"):
+        raise HTTPException(status_code=503, detail="Dirección USDT no configurada")
+    return cfg
+
+
+@app.post("/api/billing/mark-paid")
+def api_billing_mark_paid(request: Request):
+    user = _require_user(request)
+    updated = users_auth.update_user(user["email"], payment_status="pending")
+    return {"ok": True, "user": updated, "payment_status": "pending"}
 
 
 @app.get("/avatares")
@@ -195,7 +297,13 @@ def api_messages(specialist_id: str):
 
 
 @app.post("/api/specialists/{specialist_id}/chat")
-def api_chat(specialist_id: str, payload: ChatIn):
+def api_chat(specialist_id: str, payload: ChatIn, request: Request):
+    user = _current_user(request)
+    if user and users_auth.credits_exhausted(user):
+        raise HTTPException(
+            status_code=402,
+            detail={"error_code": "credits_exhausted", "message": "Se agotaron tus créditos"},
+        )
     spec = get_specialist(specialist_id)
     if not spec:
         raise HTTPException(status_code=404, detail="No existe ese especialista")
@@ -214,7 +322,15 @@ def api_chat(specialist_id: str, payload: ChatIn):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     messages.append({"role": "assistant", "content": text, "at": _now()})
     save_messages(specialist_id, messages)
-    return {"reply": text, "messages": messages, "provider": LAST_PROVIDER.get()}
+    provider_used = LAST_PROVIDER.get()
+    if user and provider_used in {"base44", "gemini_fallback", "gemini"}:
+        # Free users: count Base44 charges; gemini path still counts a small unit to exhaust freemium
+        try:
+            charge = 0.1 if provider_used != "gemini" else 0.05
+            users_auth.deduct_credits(user["email"], charge)
+        except Exception:
+            pass
+    return {"reply": text, "messages": messages, "provider": provider_used}
 
 
 def _clean_reply(text: str, name: str, other_names: list[str] | None = None) -> str:
@@ -395,7 +511,13 @@ def api_group_delete(group_id: str):
 
 
 @app.post("/api/groups/{group_id}/chat")
-def api_group_chat(group_id: str, payload: ChatIn):
+def api_group_chat(group_id: str, payload: ChatIn, request: Request):
+    user = _current_user(request)
+    if user and users_auth.credits_exhausted(user):
+        raise HTTPException(
+            status_code=402,
+            detail={"error_code": "credits_exhausted", "message": "Se agotaron tus créditos"},
+        )
     group = get_group(group_id)
     if not group:
         raise HTTPException(status_code=404, detail="No existe ese grupo")
@@ -467,7 +589,15 @@ def api_group_chat(group_id: str, payload: ChatIn):
     save_group(group)
     if not replies:
         raise HTTPException(status_code=500, detail=str(last_error or "Nadie pudo responder"))
-    return {"replies": replies, "messages": group["messages"], "provider": LAST_PROVIDER.get()}
+    provider_used = LAST_PROVIDER.get()
+    if user:
+        try:
+            # one unit per reply roughly
+            charge = 0.1 * max(1, len(replies))
+            users_auth.deduct_credits(user["email"], charge)
+        except Exception:
+            pass
+    return {"replies": replies, "messages": group["messages"], "provider": provider_used}
 
 
 def _require_admin(request: Request) -> None:
@@ -531,3 +661,28 @@ def api_admin_base44_delete(request: Request):
             pass
     return base44_client.status_public()
 
+
+
+@app.post("/api/admin/billing/approve")
+def api_admin_approve(request: Request, payload: dict):
+    _require_admin(request)
+    email = (payload.get("email") or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Falta email")
+    try:
+        user = users_auth.update_user(email, payment_status="active", plan="pro")
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"ok": True, "user": user}
+
+
+@app.get("/api/admin/billing/pending")
+def api_admin_pending(request: Request):
+    _require_admin(request)
+    users = users_auth.list_users()
+    pending = [
+        users_auth.public_user(u)
+        for u in users.values()
+        if u.get("payment_status") == "pending"
+    ]
+    return {"pending": pending}
