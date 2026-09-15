@@ -13,17 +13,91 @@ UA = (
 TIMEOUT = float(os.getenv("BASE44_TIMEOUT", "60"))
 
 
+def _data_dir() -> Path:
+    store = Path(__file__).resolve().parent.parent / "data"
+    store.mkdir(parents=True, exist_ok=True)
+    return store
+
+
+def runtime_config_path() -> Path:
+    return _data_dir() / "base44_runtime.json"
+
+
+def load_runtime() -> dict:
+    p = runtime_config_path()
+    if not p.exists():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_runtime(api_key: str | None = None, base_url: str | None = None, enabled: bool | None = None) -> dict:
+    data = load_runtime()
+    if api_key is not None:
+        data["api_key"] = api_key.strip()
+    if base_url is not None:
+        data["base_url"] = base_url.strip().rstrip("/")
+    if enabled is not None:
+        data["enabled"] = bool(enabled)
+    p = runtime_config_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Clear conversation map so a new account starts clean conversations
+    conv = p.parent / "base44_conversations.json"
+    if conv.exists() and api_key is not None:
+        try:
+            conv.unlink()
+        except Exception:
+            pass
+    return data
+
+
+def mask_key(key: str) -> str:
+    key = (key or "").strip()
+    if not key:
+        return ""
+    if len(key) <= 8:
+        return "••••"
+    return f"{key[:4]}…{key[-4:]}"
+
+
 def _key() -> str:
-    return os.getenv("BASE44_API_KEY", "").strip()
+    rt = load_runtime()
+    return (rt.get("api_key") or os.getenv("BASE44_API_KEY", "")).strip()
 
 
 def _base() -> str:
-    return os.getenv("BASE44_BASE_URL", "").strip().rstrip("/")
+    rt = load_runtime()
+    return (rt.get("base_url") or os.getenv("BASE44_BASE_URL", "")).strip().rstrip("/")
 
 
 def enabled() -> bool:
-    flag = os.getenv("BASE44_ENABLED", "").strip().lower()
-    return flag in {"1", "true", "yes", "on"} and bool(_key()) and bool(_base())
+    rt = load_runtime()
+    if "enabled" in rt:
+        flag_on = bool(rt.get("enabled"))
+    else:
+        flag = os.getenv("BASE44_ENABLED", "").strip().lower()
+        flag_on = flag in {"1", "true", "yes", "on"}
+    return flag_on and bool(_key()) and bool(_base())
+
+
+def status_public() -> dict:
+    """Safe status for admin UI — never returns full key."""
+    rt = load_runtime()
+    key = _key()
+    base = _base()
+    source = "runtime" if rt.get("api_key") or rt.get("base_url") else "env"
+    return {
+        "enabled": enabled(),
+        "base_url": base,
+        "api_key_masked": mask_key(key),
+        "has_api_key": bool(key),
+        "source": source,
+        "runtime_enabled": rt.get("enabled"),
+    }
 
 
 def _request(method: str, url: str, body: dict | None = None) -> dict:
@@ -45,7 +119,6 @@ def _request(method: str, url: str, body: dict | None = None) -> dict:
         detail = exc.read().decode("utf-8", "replace")[:500]
         raise RuntimeError(f"Base44 HTTP {exc.code}: {detail}") from None
     except Exception as exc:
-        # Never include auth headers in errors
         raise RuntimeError(f"Base44 request failed: {type(exc).__name__}") from None
     if not raw:
         return {}
@@ -53,11 +126,7 @@ def _request(method: str, url: str, body: dict | None = None) -> dict:
 
 
 def _conv_store() -> Path:
-    root = Path(os.getenv("SYNAPSE_DATA_DIR") or os.getenv("DATA_DIR") or "data")
-    # equipo-agentes uses /app/data
-    path = Path(os.getenv("EQUIPO_DATA_DIR", str(root)))
-    path.mkdir(parents=True, exist_ok=True)
-    return path / "base44_conversations.json"
+    return _data_dir() / "base44_conversations.json"
 
 
 def _load_convs() -> dict:
@@ -76,7 +145,6 @@ def _save_convs(data: dict) -> None:
 
 
 def conversation_id_for(scope: str) -> str:
-    """Reuse one Base44 conversation per specialist/group scope to save credits."""
     data = _load_convs()
     if scope in data and data[scope]:
         return data[scope]
@@ -91,7 +159,6 @@ def conversation_id_for(scope: str) -> str:
 
 
 def reply(instructions: str, history: list[dict], scope: str = "default") -> str:
-    """Send a single user turn that includes system instructions + recent history."""
     if not enabled():
         raise RuntimeError("Base44 no está habilitado (BASE44_ENABLED + key + base URL)")
 
@@ -111,7 +178,13 @@ def reply(instructions: str, history: list[dict], scope: str = "default") -> str
     cid = conversation_id_for(scope)
     base = _base()
     result = _request("POST", f"{base}/conversations/{cid}/messages", payload)
-    text = (result.get("content") or "").strip()
+    text = (
+        result.get("content")
+        or (result.get("message") or {}).get("content")
+        or ""
+    ).strip()
+    if not text and isinstance(result.get("messages"), list) and result["messages"]:
+        text = (result["messages"][-1].get("content") or "").strip()
     if not text:
         raise RuntimeError("Base44 respondió vacío")
     return text

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin · Base44</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin:0; font-family: system-ui, sans-serif; background:#000; color:#f4f4f5; }
+    main { max-width:480px; margin:0 auto; padding:24px 16px 48px; }
+    h1 { font-size:1.25rem; margin:0 0 8px; }
+    p { color:#a1a1aa; font-size:.9rem; line-height:1.4; }
+    label { display:block; margin:14px 0 6px; font-size:.85rem; color:#d4d4d8; }
+    input, button { width:100%; box-sizing:border-box; font-size:16px; border-radius:12px; border:0; padding:12px 14px; }
+    input { background:#1c1c1e; color:#f4f4f5; }
+    button { background:#f59e0b; color:#111; font-weight:700; margin-top:16px; cursor:pointer; }
+    button.ghost { background:#1c1c1e; color:#f4f4f5; margin-top:8px; }
+    .card { background:#111; border:1px solid #27272a; border-radius:16px; padding:16px; margin-top:16px; }
+    .row { display:flex; justify-content:space-between; gap:12px; font-size:.85rem; margin:6px 0; }
+    .muted { color:#71717a; }
+    .ok { color:#86efac; }
+    .err { color:#fca5a5; margin-top:10px; font-size:.85rem; }
+    .hidden { display:none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Base44 · credenciales</h1>
+    <p>Cuando se acaben los créditos de una cuenta, pegá acá la API de la otra. El chat sigue sin redeploy.</p>
+
+    <div id="gate" class="card">
+      <label>Clave de admin<input id="adminToken" type="password" autocomplete="current-password" placeholder="ADMIN_TOKEN" /></label>
+      <button type="button" id="btnUnlock">Entrar</button>
+      <p id="gateErr" class="err hidden"></p>
+    </div>
+
+    <div id="panel" class="hidden">
+      <div class="card">
+        <div class="row"><span class="muted">Estado</span><span id="stEnabled">—</span></div>
+        <div class="row"><span class="muted">Origen</span><span id="stSource">—</span></div>
+        <div class="row"><span class="muted">Base URL</span><span id="stBase" style="word-break:break-all;text-align:right">—</span></div>
+        <div class="row"><span class="muted">API key</span><span id="stKey">—</span></div>
+      </div>
+
+      <div class="card">
+        <label>Nueva Base URL<input id="baseUrl" type="url" placeholder="https://app.base44.com/api/agents/..." /></label>
+        <label>Nueva API key<input id="apiKey" type="password" autocomplete="off" placeholder="Pegá la key de la otra cuenta" /></label>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:12px">
+          <input id="enabled" type="checkbox" checked style="width:auto" /> Base44 habilitado
+        </label>
+        <button type="button" id="btnSave">Guardar y usar</button>
+        <button type="button" id="btnClear" class="ghost">Volver a la key de Fly (borrar override)</button>
+        <p id="msg" class="err hidden"></p>
+      </div>
+    </div>
+  </main>
+  <script>
+    const tokenEl = document.getElementById("adminToken");
+    const gateErr = document.getElementById("gateErr");
+    const msg = document.getElementById("msg");
+    let token = sessionStorage.getItem("ea_admin_token") || "";
+
+    function authHeaders() {
+      return { "Content-Type": "application/json", "X-Admin-Token": token };
+    }
+
+    function showMsg(text, ok) {
+      msg.textContent = text;
+      msg.classList.remove("hidden");
+      msg.className = ok ? "ok" : "err";
+      msg.style.marginTop = "10px";
+      msg.style.fontSize = ".85rem";
+    }
+
+    async function loadStatus() {
+      const res = await fetch("/api/admin/base44", { headers: authHeaders() });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "No autorizado");
+      document.getElementById("stEnabled").textContent = data.enabled ? "activo" : "apagado";
+      document.getElementById("stSource").textContent = data.source === "runtime" ? "panel (override)" : "Fly env";
+      document.getElementById("stBase").textContent = data.base_url || "—";
+      document.getElementById("stKey").textContent = data.api_key_masked || "(vacía)";
+      if (data.base_url) document.getElementById("baseUrl").value = data.base_url;
+      document.getElementById("enabled").checked = data.enabled !== false;
+      document.getElementById("gate").classList.add("hidden");
+      document.getElementById("panel").classList.remove("hidden");
+    }
+
+    document.getElementById("btnUnlock").onclick = async () => {
+      token = tokenEl.value.trim();
+      gateErr.classList.add("hidden");
+      try {
+        await loadStatus();
+        sessionStorage.setItem("ea_admin_token", token);
+      } catch (e) {
+        gateErr.textContent = e.message || "Error";
+        gateErr.classList.remove("hidden");
+      }
+    };
+
+    document.getElementById("btnSave").onclick = async () => {
+      const body = {
+        base_url: document.getElementById("baseUrl").value.trim(),
+        api_key: document.getElementById("apiKey").value.trim(),
+        enabled: document.getElementById("enabled").checked,
+      };
+      if (!body.api_key && !body.base_url) {
+        showMsg("Pegá al menos la API key o la Base URL", false);
+        return;
+      }
+      const res = await fetch("/api/admin/base44", {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showMsg(data.detail || "No se pudo guardar", false);
+        return;
+      }
+      document.getElementById("apiKey").value = "";
+      showMsg("Guardado. El chat ya usa esta cuenta.", true);
+      await loadStatus();
+    };
+
+    document.getElementById("btnClear").onclick = async () => {
+      if (!confirm("¿Borrar el override y volver a la key de Fly?")) return;
+      const res = await fetch("/api/admin/base44", { method: "DELETE", headers: authHeaders() });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showMsg(data.detail || "No se pudo borrar", false);
+        return;
+      }
+      document.getElementById("apiKey").value = "";
+      showMsg("Override borrado. Volvió la config de Fly.", true);
+      await loadStatus();
+    };
+
+    if (token) {
+      loadStatus().catch(() => sessionStorage.removeItem("ea_admin_token"));
+    }
+  </script>
+</body>
+</html>
