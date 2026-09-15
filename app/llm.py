@@ -64,14 +64,23 @@ def _models() -> list[str]:
 
 
 def resolve_provider(explicit: str | None = None) -> str:
-    """Gemini by default. Base44 only when enabled and requested or LLM_PROVIDER=base44."""
-    want = (explicit or os.getenv("LLM_PROVIDER", "gemini") or "gemini").strip().lower()
-    if want in {"base44", "base-44", "b44"}:
+    """Base44 first when enabled; Gemini otherwise or when explicitly requested.
+
+    Default order (Jefe): Base44 → fallback Gemini. Override with LLM_PROVIDER
+    or per-request provider=gemini|base44.
+    """
+    raw = (explicit if explicit is not None else os.getenv("LLM_PROVIDER", "")).strip().lower()
+    if raw in {"gemini", "google"}:
+        return "gemini"
+    if raw in {"base44", "base-44", "b44"}:
         if not base44_client.enabled():
             raise RuntimeError(
                 "Base44 pedido pero no está listo: seteá BASE44_ENABLED=1, "
                 "BASE44_API_KEY y BASE44_BASE_URL"
             )
+        return "base44"
+    # No explicit choice: prefer Base44 when configured, else Gemini
+    if base44_client.enabled():
         return "base44"
     return "gemini"
 

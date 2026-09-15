@@ -32,7 +32,7 @@ let toastTimer = null;
 function syncHeavyUi() {
   const on = !!(heavyToggle && heavyToggle.checked);
   if (heavyBar) heavyBar.classList.toggle("on", on);
-  if (heavyHint) heavyHint.textContent = on ? "Usando Base44 (respuesta más profunda)" : "Gemini";
+  if (heavyHint) heavyHint.textContent = on ? "Usando Base44 (respuesta más profunda)" : "Solo Gemini";
 }
 
 function showToast(text, kind) {
@@ -432,7 +432,7 @@ document.getElementById("composer").onsubmit = async (e) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message,
-        provider: (heavyToggle && heavyToggle.checked) ? "base44" : undefined,
+        provider: (heavyToggle && heavyToggle.checked) ? "base44" : "gemini",
       }),
     });
     const payload = await res.json();
