@@ -8,9 +8,11 @@
   <title>Glou · Agentes que laburan con vos</title>
   <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/favicon-32.png" />
   <link rel="apple-touch-icon" href="/static/brand/logo-glou-256.png" />
-  <link rel="stylesheet" href="/static/marketing.css?v=3" />
+  <link rel="stylesheet" href="/static/marketing.css?v=4" />
 </head>
 <body class="landing-page">
+  <div class="scroll-progress" aria-hidden="true"><i data-scroll-bar></i></div>
+
   <!-- Full-bleed 3D-ish scene (CSS only) -->
   <div class="scene" aria-hidden="true">
     <div class="scene-layer scene-layer--far"></div>
@@ -23,7 +25,6 @@
   </div>
 
   <div class="wrap wrap-landing">
-    <!-- 1. Nav -->
     <nav class="nav nav-landing">
       <a class="brand-lockup" href="#top" aria-label="Glou — inicio">
         <span class="logo-live logo-live--nav" data-logo>
@@ -38,9 +39,8 @@
       </div>
     </nav>
 
-    <!-- 2. Hero -->
     <section class="hero" id="top">
-      <div class="hero-visual" data-reveal>
+      <div class="hero-visual" data-reveal data-slide="down">
         <div class="hero-logo-stage">
           <div class="logo-live logo-live--hero" data-logo data-parallax>
             <picture>
@@ -65,54 +65,51 @@
           </video>
         </div>
       </div>
-      <h1 class="hero-headline" data-reveal>Glou.</h1>
-      <p class="hero-sub" data-reveal>Un equipo de agentes. A tu ritmo.</p>
-      <div class="ctas" data-reveal>
+      <h1 class="hero-headline" data-reveal data-slide="down" data-write data-write-mode="chars">Glou.</h1>
+      <p class="hero-sub" data-reveal data-slide="down" data-write data-write-mode="words">Un equipo de agentes. A tu ritmo.</p>
+      <div class="ctas" data-reveal data-slide="down" data-stagger>
         <a class="btn btn-primary" href="/registro">Empezar</a>
         <a class="btn btn-secondary" href="#como">Ver cómo funciona</a>
       </div>
     </section>
 
-    <!-- 3. Trust / tagline -->
-    <section class="section trust-line" data-reveal>
-      <p class="tagline">Agentes que laburan con vos.</p>
+    <section class="section trust-line" data-reveal data-slide="down">
+      <p class="tagline" data-write data-write-mode="words">Agentes que laburan con vos.</p>
     </section>
 
-    <!-- 4. Qué es -->
-    <section class="section" id="que-es" data-reveal>
-      <h2>Varios especialistas. Un solo hilo. Sin fricción.</h2>
-      <div class="cards">
-        <div class="card" data-reveal>
+    <section class="section" id="que-es">
+      <h2 data-reveal data-slide="down" data-write data-write-mode="words">Varios especialistas. Un solo hilo. Sin fricción.</h2>
+      <div class="cards" data-stagger>
+        <div class="card" data-reveal data-slide="down">
           <h3>Especialistas que se coordinan</h3>
           <p>Cada uno aporta lo suyo. Vos seguís en la misma conversación.</p>
         </div>
-        <div class="card" data-reveal>
+        <div class="card" data-reveal data-slide="down">
           <h3>Un hilo, cero contexto perdido</h3>
           <p>No saltás de herramienta en herramienta. El equipo te sigue.</p>
         </div>
-        <div class="card" data-reveal>
+        <div class="card" data-reveal data-slide="down">
           <h3>Sin fricción</h3>
           <p>Pedís. Avanza. Listo. El ritmo lo marcás vos.</p>
         </div>
       </div>
     </section>
 
-    <!-- 5. Cómo se siente -->
     <section class="section scenes" id="como">
-      <h2 data-reveal>Cómo se siente</h2>
-      <div class="scroll-scenes">
-        <article class="scroll-scene" data-reveal>
+      <h2 data-reveal data-slide="down" data-write data-write-mode="words">Cómo se siente</h2>
+      <div class="scroll-scenes" data-stack>
+        <article class="scroll-scene" data-reveal data-slide="down">
           <div class="scene-chip">01 · Chat</div>
-          <h3>Empezás a hablar</h3>
+          <h3 data-write data-write-mode="words">Empezás a hablar</h3>
           <p>Contás qué necesitás. Glou escucha y arma el equipo.</p>
           <div class="scene-mock scene-mock--chat" aria-hidden="true">
-            <div class="bubble bubble-user">Necesito un brief y un plan corto.</div>
-            <div class="bubble bubble-bot">Dale. Lo armamos juntos.</div>
+            <div class="bubble bubble-user" data-write data-write-mode="words">Necesito un brief y un plan corto.</div>
+            <div class="bubble bubble-bot" data-write data-write-mode="words">Dale. Lo armamos juntos.</div>
           </div>
         </article>
-        <article class="scroll-scene" data-reveal>
+        <article class="scroll-scene" data-reveal data-slide="down">
           <div class="scene-chip">02 · Especialista</div>
-          <h3>Entra quien hace falta</h3>
+          <h3 data-write data-write-mode="words">Entra quien hace falta</h3>
           <p>El especialista correcto toma el turno. Sin que vos lo busques.</p>
           <div class="scene-mock scene-mock--spec" aria-hidden="true">
             <div class="spec-row"><span class="dot"></span> Estrategia</div>
@@ -120,9 +117,9 @@
             <div class="spec-row"><span class="dot"></span> Revisión</div>
           </div>
         </article>
-        <article class="scroll-scene" data-reveal>
+        <article class="scroll-scene" data-reveal data-slide="down">
           <div class="scene-chip">03 · Resultado</div>
-          <h3>Salís con algo concreto</h3>
+          <h3 data-write data-write-mode="words">Salís con algo concreto</h3>
           <p>Un entregable claro. Listo para usar o iterar.</p>
           <div class="scene-mock scene-mock--out" aria-hidden="true">
             <div class="out-bar"></div>
@@ -133,75 +130,70 @@
       </div>
     </section>
 
-    <!-- 6. Potencia -->
-    <section class="section potencia" id="potencia" data-reveal>
-      <h2>Cuando el tema lo pide, Glou profundiza.</h2>
+    <section class="section potencia" id="potencia" data-reveal data-slide="down">
+      <h2 data-write data-write-mode="words">Cuando el tema lo pide, Glou profundiza.</h2>
       <p class="section-lead">Más foco. Más contexto. Más potencia en los turnos que la requieren — sin interrumpir tu flujo.</p>
     </section>
 
-    <!-- 7. Para quién -->
     <section class="section" id="para-quien">
-      <h2 data-reveal>Para quién</h2>
-      <div class="cards profiles">
-        <div class="card" data-reveal>
+      <h2 data-reveal data-slide="down" data-write data-write-mode="words">Para quién</h2>
+      <div class="cards profiles" data-stagger>
+        <div class="card" data-reveal data-slide="down">
           <h3>Quien construye solo</h3>
           <p>Fundadores y freelancers que necesitan un equipo sin armarlo.</p>
         </div>
-        <div class="card" data-reveal>
+        <div class="card" data-reveal data-slide="down">
           <h3>Quien opera bajo presión</h3>
           <p>Operaciones, soporte y delivery que no pueden perder el hilo.</p>
         </div>
-        <div class="card" data-reveal>
+        <div class="card" data-reveal data-slide="down">
           <h3>Quien piensa en voz alta</h3>
           <p>Creativos y estrategas que quieren especialistas a un mensaje.</p>
         </div>
       </div>
     </section>
 
-    <!-- 8. Planes -->
-    <section class="section" id="planes" data-reveal>
-      <h2>Planes</h2>
-      <div class="plans">
-        <div class="offer offer-free">
+    <section class="section" id="planes">
+      <h2 data-reveal data-slide="down" data-write data-write-mode="words">Planes</h2>
+      <div class="plans" data-stagger>
+        <div class="offer offer-free" data-reveal data-slide="down">
           <div class="plan-label">Incluido</div>
           <div class="price">5 créditos</div>
           <p>Para comenzar. Sin tarjeta.</p>
           <a class="btn btn-secondary" href="/registro">Crear cuenta</a>
         </div>
-        <div class="offer offer-pro">
+        <div class="offer offer-pro" data-reveal data-slide="down">
           <div class="plan-label">Pro</div>
           <div class="price">30 USDT <span class="price-unit">/ mes</span></div>
           <p>Red TRC20. Confirmación manual.</p>
           <a class="btn btn-primary" href="/registro">Empezar</a>
         </div>
       </div>
-      <p class="plan-micro">Pro se ofrece al completar el cupo incluido.</p>
+      <p class="plan-micro" data-reveal data-slide="down">Pro se ofrece al completar el cupo incluido.</p>
     </section>
 
-    <!-- 9. FAQ -->
     <section class="section faq" id="faq">
-      <h2 data-reveal>Preguntas cortas</h2>
-      <details class="faq-item" data-reveal>
+      <h2 data-reveal data-slide="down" data-write data-write-mode="words">Preguntas cortas</h2>
+      <details class="faq-item" data-reveal data-slide="down">
         <summary>¿Qué incluye el cupo gratuito?</summary>
         <p>5 créditos para probar Glou. Sin tarjeta. Cuando se agotan, podés pasar a Pro.</p>
       </details>
-      <details class="faq-item" data-reveal>
+      <details class="faq-item" data-reveal data-slide="down">
         <summary>¿Cómo pago Pro?</summary>
         <p>30 USDT por mes en red TRC20 (Tron). Solo esa red — no ERC20 ni otras.</p>
       </details>
-      <details class="faq-item" data-reveal>
+      <details class="faq-item" data-reveal data-slide="down">
         <summary>¿Necesito instalar algo?</summary>
         <p>No. Entrá desde el navegador, registrate y listo.</p>
       </details>
     </section>
 
-    <!-- 10. Cierre -->
-    <section class="footer-cta" data-reveal>
+    <section class="footer-cta" data-reveal data-slide="down">
       <div class="logo-live logo-live--idle" data-logo>
         <img src="/static/brand/logo-glou-256.png" width="64" height="64" alt="" decoding="async" />
         <span class="logo-eyes" aria-hidden="true"></span>
       </div>
-      <p class="close-line">Listo cuando vos lo estás.</p>
+      <p class="close-line" data-write data-write-mode="words">Listo cuando vos lo estás.</p>
       <a class="btn btn-primary" href="/registro">Empezar</a>
     </section>
 
@@ -212,6 +204,6 @@
     </footer>
   </div>
 
-  <script src="/static/glou.js?v=1" defer></script>
+  <script src="/static/glou.js?v=2" defer></script>
 </body>
 </html>
