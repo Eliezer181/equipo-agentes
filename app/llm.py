@@ -4,6 +4,8 @@ import os
 
 from openai import OpenAI
 
+from app import base44_client
+
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 XAI_URL = "https://api.x.ai/v1"
 GEMINI_MODELS = (
@@ -58,6 +60,19 @@ def _models() -> list[str]:
     return out
 
 
+def resolve_provider(explicit: str | None = None) -> str:
+    """Gemini by default. Base44 only when enabled and requested or LLM_PROVIDER=base44."""
+    want = (explicit or os.getenv("LLM_PROVIDER", "gemini") or "gemini").strip().lower()
+    if want in {"base44", "base-44", "b44"}:
+        if not base44_client.enabled():
+            raise RuntimeError(
+                "Base44 pedido pero no está listo: seteá BASE44_ENABLED=1, "
+                "BASE44_API_KEY y BASE44_BASE_URL"
+            )
+        return "base44"
+    return "gemini"
+
+
 def reply_messages(messages: list[dict], temperature: float = 0.4) -> str:
     """Prueba los modelos en orden hasta que uno responda."""
     last_error = None
@@ -79,10 +94,45 @@ def reply_messages(messages: list[dict], temperature: float = 0.4) -> str:
     raise last_error or RuntimeError("No se pudo usar ningún modelo")
 
 
-def reply(instructions: str, history: list[dict]) -> str:
+def reply(
+    instructions: str,
+    history: list[dict],
+    *,
+    provider: str | None = None,
+    scope: str = "default",
+) -> str:
+    if resolve_provider(provider) == "base44":
+        return base44_client.reply(instructions, history, scope=scope)
     messages = [{"role": "system", "content": instructions}]
     for item in history[-30:]:
         role = item.get("role")
         if role in {"user", "assistant"} and item.get("content"):
             messages.append({"role": role, "content": item["content"]})
     return reply_messages(messages)
+
+
+def reply_messages_routed(
+    messages: list[dict],
+    temperature: float = 0.4,
+    *,
+    provider: str | None = None,
+    scope: str = "default",
+    instructions: str = "",
+) -> str:
+    """Group chats build OpenAI-style messages; map to Base44 when selected."""
+    if resolve_provider(provider) == "base44":
+        # Flatten OpenAI messages into instructions + history for Base44
+        system_parts = []
+        history: list[dict] = []
+        for m in messages:
+            role = m.get("role")
+            content = (m.get("content") or "").strip()
+            if not content:
+                continue
+            if role == "system":
+                system_parts.append(content)
+            elif role in {"user", "assistant"}:
+                history.append({"role": role, "content": content})
+        instr = instructions or "\n\n".join(system_parts) or "Sos un especialista del equipo."
+        return base44_client.reply(instr, history, scope=scope)
+    return reply_messages(messages, temperature=temperature)
