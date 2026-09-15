@@ -91,7 +91,7 @@ function renderList(filter = "") {
   html += `<div class="section-label">Agentes</div>`;
   html += active.map(specRow).join("") || `<p class="preview" style="padding:8px 16px">Todavía no hay agentes.</p>`;
   if (stored.length) html += `<div class="section-label">Archivados</div>${stored.map(specRow).join("")}`;
-  listEl.innerHTML = html;
+  listEl.innerHTML = html || `<div class="empty-inbox"><strong>Tu equipo está vacío</strong><span>Creá un especialista o un grupo para empezar.</span></div>`;
 }
 
 function renderThread(messages) {
@@ -154,7 +154,23 @@ function closeChat() {
   show("inbox");
   infoModal.classList.add("hidden");
   if (agentModal) agentModal.classList.add("hidden");
-  loadList();
+  
+(function setupSecretAdmin() {
+  const btn = document.getElementById("btn-admin-secret");
+  if (!btn) return;
+  let timer = null;
+  const go = () => { window.location.href = "/admin/base44"; };
+  const start = (e) => {
+    if (e.type === "mousedown" && e.button !== 0) return;
+    timer = setTimeout(go, 900);
+  };
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  btn.addEventListener("mousedown", start);
+  btn.addEventListener("touchstart", start, { passive: true });
+  ["mouseup", "mouseleave", "touchend", "touchcancel"].forEach((ev) => btn.addEventListener(ev, cancel));
+})();
+
+loadList();
 }
 
 function openGroupInfo() {

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>Equipo</title>
-  <link rel="stylesheet" href="/static/styles.css?v=21" />
+  <title>Equipo · Agentes</title>
+  <link rel="stylesheet" href="/static/styles.css?v=22" />
   <style>
     .palette button{width:28px;height:28px;border-radius:50%;border:2px solid #111;padding:0}
     .palette button.on{outline:2px solid #fff}
@@ -46,7 +46,10 @@
   <div id="app">
     <section id="inbox" class="screen active">
       <header class="top">
-        <div class="avatar-me" aria-hidden="true"></div>
+        <div class="brand-block">
+          <button type="button" class="avatar-me" id="btn-admin-secret" title="Mantener pulsado" aria-label="Perfil"></button>
+          <div class="brand-title">Equipo</div>
+        </div>
         <div class="top-actions">
           <button type="button" id="btn-search" title="Buscar">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -154,9 +157,9 @@
       </form>
     </div>
   </div>
-  <script src="/static/avatar.js?v=21"></script>
-  <script src="/static/app.js?v=21"></script>
-  <script src="/static/color-ui.js?v=21"></script>
-  <script src="/static/group-ui.js?v=21"></script>
+  <script src="/static/avatar.js?v=22"></script>
+  <script src="/static/app.js?v=22"></script>
+  <script src="/static/color-ui.js?v=22"></script>
+  <script src="/static/group-ui.js?v=22"></script>
 </body>
 </html>
