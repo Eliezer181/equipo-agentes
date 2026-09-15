@@ -34,7 +34,7 @@ def load_runtime() -> dict:
         return {}
 
 
-def save_runtime(api_key: str | None = None, base_url: str | None = None, enabled: bool | None = None) -> dict:
+def save_runtime(api_key: str | None = None, base_url: str | None = None, enabled: bool | None = None, workspace_id: str | None = None) -> dict:
     data = load_runtime()
     if api_key is not None:
         data["api_key"] = api_key.strip()
@@ -42,6 +42,8 @@ def save_runtime(api_key: str | None = None, base_url: str | None = None, enable
         data["base_url"] = base_url.strip().rstrip("/")
     if enabled is not None:
         data["enabled"] = bool(enabled)
+    if workspace_id is not None:
+        data["workspace_id"] = workspace_id.strip()
     p = runtime_config_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -102,7 +104,7 @@ def status_public() -> dict:
     return out
 
 
-def _request(method: str, url: str, body: dict | None = None) -> dict:
+def _request(method: str, url: str, body: dict | None = None):
     key = _key()
     if not key:
         raise RuntimeError("Falta BASE44_API_KEY")
@@ -202,25 +204,88 @@ def record_usage(credits: float, scope: str = "", meta: dict | None = None) -> d
     return data
 
 
+
+def workspace_id() -> str:
+    rt = load_runtime()
+    wid = (rt.get("workspace_id") or os.getenv("BASE44_WORKSPACE_ID", "")).strip()
+    if wid:
+        return wid
+    # Infer from apps list (organization_id)
+    try:
+        apps = _request("GET", "https://app.base44.com/api/apps")
+        if isinstance(apps, list) and apps:
+            return str(apps[0].get("organization_id") or "").strip()
+    except Exception:
+        pass
+    return ""
+
+
+def fetch_official_balance() -> dict | None:
+    """Live credits from Base44 usage-logs (same source as the billing UI)."""
+    wid = workspace_id()
+    if not wid or not _key():
+        return None
+    try:
+        stats = _request(
+            "GET",
+            f"https://app.base44.com/api/usage-logs/stats?workspace_id={wid}",
+        )
+    except Exception as exc:
+        return {"error": type(exc).__name__, "detail": "No se pudo leer el saldo oficial"}
+    if not isinstance(stats, dict):
+        return None
+    daily_limit = float(stats.get("daily_limit") or 0)
+    daily_usage = float(stats.get("daily_usage") or 0)
+    monthly_limit = float(stats.get("message_credits_effective_limit") or stats.get("monthly_limit") or 0)
+    monthly_usage = float(stats.get("monthly_usage") or 0)
+    remaining = stats.get("message_credits_remaining")
+    if remaining is None and monthly_limit:
+        remaining = monthly_limit - monthly_usage
+    return {
+        "workspace_id": wid,
+        "tier": stats.get("tier_display_name") or stats.get("tier"),
+        "daily_usage": daily_usage,
+        "daily_limit": daily_limit,
+        "daily_remaining": max(0.0, round(daily_limit - daily_usage, 4)) if daily_limit else None,
+        "daily_reset_at": stats.get("daily_reset_at"),
+        "monthly_usage": monthly_usage,
+        "monthly_limit": monthly_limit,
+        "monthly_remaining": float(remaining) if remaining is not None else None,
+        "extra_credits": stats.get("extra_credits"),
+        "period_end": stats.get("current_credit_period_end_date"),
+        "is_over_limit": bool(stats.get("is_over_limit")),
+        "user_email": stats.get("user_email"),
+    }
+
+
 def usage_public() -> dict:
     data = load_usage()
     day = _today()
-    # Free-plan reference from Base44 docs (message credits)
-    daily_limit = float(os.getenv("BASE44_DAILY_LIMIT", "5") or 5)
-    monthly_limit = float(os.getenv("BASE44_MONTHLY_LIMIT", "25") or 25)
     today = float((data.get("by_day") or {}).get(day) or 0)
     total = float(data.get("total_credits") or 0)
-    return {
+    official = fetch_official_balance()
+    out = {
         "tracked_total_credits": round(total, 4),
         "tracked_calls": int(data.get("calls") or 0),
         "tracked_today_credits": round(today, 4),
-        "daily_limit_ref": daily_limit,
-        "monthly_limit_ref": monthly_limit,
-        "estimated_daily_remaining": max(0.0, round(daily_limit - today, 4)),
-        "estimated_monthly_remaining": max(0.0, round(monthly_limit - total, 4)),
-        "note": "Consumo medido por esta app (credits_charged). El saldo oficial de Base44 puede incluir uso web; Monitoring API requiere token Enterprise.",
         "recent": list(reversed((data.get("events") or [])[-15:])),
+        "official": official,
     }
+    if official and not official.get("error"):
+        out["daily_limit_ref"] = official.get("daily_limit")
+        out["monthly_limit_ref"] = official.get("monthly_limit")
+        out["estimated_daily_remaining"] = official.get("daily_remaining")
+        out["estimated_monthly_remaining"] = official.get("monthly_remaining")
+        out["note"] = "Saldo oficial de Base44 (usage-logs) + consumo de esta app abajo."
+    else:
+        daily_limit = float(os.getenv("BASE44_DAILY_LIMIT", "5") or 5)
+        monthly_limit = float(os.getenv("BASE44_MONTHLY_LIMIT", "25") or 25)
+        out["daily_limit_ref"] = daily_limit
+        out["monthly_limit_ref"] = monthly_limit
+        out["estimated_daily_remaining"] = max(0.0, round(daily_limit - today, 4))
+        out["estimated_monthly_remaining"] = max(0.0, round(monthly_limit - total, 4))
+        out["note"] = "Solo consumo de esta app (no se pudo leer el saldo oficial)."
+    return out
 
 
 def extract_credits(result: dict) -> float:
