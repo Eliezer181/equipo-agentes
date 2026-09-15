@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import os
+from contextvars import ContextVar
 
 from openai import OpenAI
 
 from app import base44_client
+
+LAST_PROVIDER: ContextVar[str] = ContextVar("last_llm_provider", default="gemini")
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 XAI_URL = "https://api.x.ai/v1"
@@ -94,6 +97,15 @@ def reply_messages(messages: list[dict], temperature: float = 0.4) -> str:
     raise last_error or RuntimeError("No se pudo usar ningún modelo")
 
 
+def _gemini_from_history(instructions: str, history: list[dict]) -> str:
+    messages = [{"role": "system", "content": instructions}]
+    for item in history[-30:]:
+        role = item.get("role")
+        if role in {"user", "assistant"} and item.get("content"):
+            messages.append({"role": role, "content": item["content"]})
+    return reply_messages(messages)
+
+
 def reply(
     instructions: str,
     history: list[dict],
@@ -102,13 +114,17 @@ def reply(
     scope: str = "default",
 ) -> str:
     if resolve_provider(provider) == "base44":
-        return base44_client.reply(instructions, history, scope=scope)
-    messages = [{"role": "system", "content": instructions}]
-    for item in history[-30:]:
-        role = item.get("role")
-        if role in {"user", "assistant"} and item.get("content"):
-            messages.append({"role": role, "content": item["content"]})
-    return reply_messages(messages)
+        try:
+            text = base44_client.reply(instructions, history, scope=scope)
+            LAST_PROVIDER.set("base44")
+            return text
+        except Exception:
+            # Fallback to Gemini; never leak Base44 auth details to callers.
+            text = _gemini_from_history(instructions, history)
+            LAST_PROVIDER.set("gemini_fallback")
+            return text
+    LAST_PROVIDER.set("gemini")
+    return _gemini_from_history(instructions, history)
 
 
 def reply_messages_routed(
@@ -121,7 +137,6 @@ def reply_messages_routed(
 ) -> str:
     """Group chats build OpenAI-style messages; map to Base44 when selected."""
     if resolve_provider(provider) == "base44":
-        # Flatten OpenAI messages into instructions + history for Base44
         system_parts = []
         history: list[dict] = []
         for m in messages:
@@ -134,5 +149,12 @@ def reply_messages_routed(
             elif role in {"user", "assistant"}:
                 history.append({"role": role, "content": content})
         instr = instructions or "\n\n".join(system_parts) or "Sos un especialista del equipo."
-        return base44_client.reply(instr, history, scope=scope)
+        try:
+            text = base44_client.reply(instr, history, scope=scope)
+            LAST_PROVIDER.set("base44")
+            return text
+        except Exception:
+            LAST_PROVIDER.set("gemini_fallback")
+            return reply_messages(messages, temperature=temperature)
+    LAST_PROVIDER.set("gemini")
     return reply_messages(messages, temperature=temperature)

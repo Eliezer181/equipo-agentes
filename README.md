@@ -34,3 +34,5 @@ Routing:
 - Por turno: el body del chat acepta `"provider": "base44"` en `POST /api/specialists/{id}/chat` y `POST /api/groups/{id}/chat`.
 
 Recomendación: dejá Gemini para el chat diario y usá `provider: "base44"` solo cuando haga falta más potencia.
+
+Si Base44 falla (timeout, sin créditos, error HTTP), el backend hace **fallback automático a Gemini** y la respuesta incluye `"provider": "gemini_fallback"` para que el front muestre el toast.

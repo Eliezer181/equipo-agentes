@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app.llm import _models, _using_gemini, reply, reply_messages_routed
+from app.llm import LAST_PROVIDER, _models, _using_gemini, reply, reply_messages_routed
 from contextvars import ContextVar
 from app.media import attach_media
 from app.store import (
@@ -213,7 +213,7 @@ def api_chat(specialist_id: str, payload: ChatIn):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     messages.append({"role": "assistant", "content": text, "at": _now()})
     save_messages(specialist_id, messages)
-    return {"reply": text, "messages": messages, "provider": (payload.provider or "gemini")}
+    return {"reply": text, "messages": messages, "provider": LAST_PROVIDER.get()}
 
 
 def _clean_reply(text: str, name: str, other_names: list[str] | None = None) -> str:
