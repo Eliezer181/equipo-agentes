@@ -32,7 +32,7 @@ let toastTimer = null;
 function syncHeavyUi() {
   const on = !!(heavyToggle && heavyToggle.checked);
   if (heavyBar) heavyBar.classList.toggle("on", on);
-  if (heavyHint) heavyHint.textContent = on ? "Usando Base44 (respuesta más profunda)" : "Solo Gemini";
+  if (heavyHint) heavyHint.textContent = on ? "Base44 activo" : "Gemini";
 }
 
 function showToast(text, kind) {
@@ -440,10 +440,8 @@ document.getElementById("composer").onsubmit = async (e) => {
       thread.insertAdjacentHTML("beforeend", `<div class="bubble assistant">Error: ${escapeHtml(payload.detail || "no se pudo responder")}</div>`);
       return;
     }
-    if (payload.provider === "base44") {
-      showToast("Usando Base44 (respuesta más profunda)", "heavy");
-    } else if (payload.provider === "gemini_fallback") {
-      showToast("Base44 no respondió. Seguimos con Gemini.");
+    if (payload.provider === "gemini_fallback") {
+      showToast("Base44 falló · seguimos con Gemini.");
     }
     if (current.type === "group") {
       const thinking = document.getElementById("thinking");
