@@ -9,11 +9,11 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/favicon-32.png" />
   <link rel="apple-touch-icon" href="/static/brand/logo-glou-256.png" />
   <link rel="stylesheet" href="/static/marketing.css?v=4" />
+  <link rel="stylesheet" href="/static/scroll-fx.css?v=1" />
 </head>
 <body class="landing-page">
   <div class="scroll-progress" aria-hidden="true"><i data-scroll-bar></i></div>
 
-  <!-- Full-bleed 3D-ish scene (CSS only) -->
   <div class="scene" aria-hidden="true">
     <div class="scene-layer scene-layer--far"></div>
     <div class="scene-layer scene-layer--mid"></div>
@@ -50,17 +50,7 @@
             <span class="logo-eyes" aria-hidden="true"></span>
             <span class="logo-glow" aria-hidden="true"></span>
           </div>
-          <video
-            class="hero-video hidden"
-            id="hero-video"
-            muted
-            playsinline
-            autoplay
-            loop
-            preload="metadata"
-            poster="/static/brand/logo-glou-512.png"
-            aria-label="Glou en movimiento"
-          >
+          <video class="hero-video hidden" id="hero-video" muted playsinline autoplay loop preload="metadata" poster="/static/brand/logo-glou-512.png" aria-label="Glou en movimiento">
             <source src="/static/brand/hero-muted.mp4" type="video/mp4" />
           </video>
         </div>

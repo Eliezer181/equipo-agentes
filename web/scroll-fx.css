@@ -1,0 +1,126 @@
+/* Scroll progress */
+.scroll-progress {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 40;
+  pointer-events: none; background: transparent;
+}
+.scroll-progress i {
+  display: block; height: 100%; width: 0%;
+  background: linear-gradient(90deg, #f59e0b, #fde68a);
+  box-shadow: 0 0 12px rgba(245,158,11,.45);
+  transform-origin: left center;
+}
+
+[data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, -42px, 0);
+  filter: blur(10px);
+  transition:
+    opacity .72s cubic-bezier(.22,1,.36,1),
+    transform .82s cubic-bezier(.16,1,.3,1),
+    filter .6s ease;
+  will-change: opacity, transform, filter;
+}
+[data-reveal][data-slide="down"] {
+  transform: translate3d(0, -56px, 0);
+}
+[data-reveal].is-in {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  filter: blur(0);
+}
+[data-stagger] > [data-reveal]:nth-child(1) { transition-delay: .04s; }
+[data-stagger] > [data-reveal]:nth-child(2) { transition-delay: .14s; }
+[data-stagger] > [data-reveal]:nth-child(3) { transition-delay: .24s; }
+[data-stagger] > [data-reveal]:nth-child(4) { transition-delay: .34s; }
+[data-stagger] > .btn:nth-child(1) { transition-delay: .06s; }
+[data-stagger] > .btn:nth-child(2) { transition-delay: .16s; }
+
+[data-write] .write-unit {
+  display: inline-block;
+  opacity: 0;
+  transform: translate3d(0, -0.55em, 0);
+  filter: blur(6px);
+  will-change: opacity, transform, filter;
+}
+[data-write] .write-unit.space {
+  width: 0.28em;
+  transform: none;
+  filter: none;
+}
+[data-write].is-writing .write-unit {
+  animation: write-in .48s cubic-bezier(.2,.85,.2,1) forwards;
+  animation-delay: calc(var(--i, 0) * 38ms);
+}
+[data-write].is-writing .write-unit.space {
+  animation: write-space .2s ease forwards;
+  animation-delay: calc(var(--i, 0) * 38ms);
+}
+[data-write].is-writing.write-done .write-unit {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  animation: none;
+}
+@keyframes write-in {
+  to { opacity: 1; transform: translate3d(0,0,0); filter: blur(0); }
+}
+@keyframes write-space {
+  to { opacity: 1; }
+}
+
+.write-cursor::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 0.82em;
+  margin-left: 3px;
+  background: #fbbf24;
+  box-shadow: 0 0 8px rgba(251,191,36,.55);
+  vertical-align: -0.06em;
+  animation: cursor-blink .85s step-end infinite;
+}
+@keyframes cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.scroll-scenes[data-stack] {
+  display: grid;
+  gap: 16px;
+}
+@media (min-width: 640px) {
+  .scroll-scenes[data-stack] {
+    display: block;
+    padding-bottom: 24px;
+  }
+  .scroll-scenes[data-stack] .scroll-scene {
+    position: sticky;
+    top: 76px;
+    margin-bottom: 18px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.35);
+  }
+  .scroll-scenes[data-stack] .scroll-scene:nth-child(1) { z-index: 1; }
+  .scroll-scenes[data-stack] .scroll-scene:nth-child(2) { z-index: 2; top: 92px; }
+  .scroll-scenes[data-stack] .scroll-scene:nth-child(3) { z-index: 3; top: 108px; }
+}
+
+.scroll-scene.is-in .out-bar {
+  transform-origin: left center;
+  animation: bar-write .9s cubic-bezier(.22,1,.36,1) both;
+}
+.scroll-scene.is-in .out-bar.short { animation-delay: .12s; }
+.scroll-scene.is-in .out-bar.mid { animation-delay: .24s; }
+@keyframes bar-write {
+  from { transform: scaleX(0); opacity: .2; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-progress i { transition: none; }
+  [data-write] .write-unit,
+  [data-write].is-writing .write-unit {
+    opacity: 1; transform: none; filter: none; animation: none;
+  }
+  .write-cursor::after { display: none; }
+  .scroll-scene.is-in .out-bar { animation: none; }
+}
