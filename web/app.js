@@ -54,8 +54,9 @@ if (heavyToggle) {
 // Convierte markdown mínimo a HTML seguro: imágenes ![alt](url) y links [texto](url)
 function renderContent(text) {
   let html = escapeHtml(text);
+  const IMG_STYLE = "display:block;max-width:100%;width:100%;height:auto;border-radius:12px;margin:6px 0;border:1px solid rgba(0,0,0,.08);";
   html = html.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g,
-    (m, alt, url) => `<a href="${url}" target="_blank" rel="noopener"><img class="chat-img" src="${url}" alt="${alt}" loading="lazy" /></a>`);
+    (m, alt, url) => `<a href="${url}" target="_blank" rel="noopener"><img class="chat-img" style="${IMG_STYLE}" src="${url}" alt="${alt}" loading="lazy" /></a>`);
   html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
     '<a href="$2" target="_blank" rel="noopener">$1</a>');
   return html;

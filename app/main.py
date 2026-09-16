@@ -153,7 +153,11 @@ def home(request: Request):
     sid = request.cookies.get(users_auth.COOKIE)
     user = users_auth.user_from_session(sid)
     if user:
-        return FileResponse(WEB / "index.html")
+        # no-cache: si no, un navegador/celular puede quedarse con el HTML viejo
+        # (referenciando JS/CSS de una versión anterior) después de un deploy.
+        return FileResponse(WEB / "index.html", headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+        })
     return RedirectResponse(url="/landing", status_code=302)
 
 
