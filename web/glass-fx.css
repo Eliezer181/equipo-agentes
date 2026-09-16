@@ -2,9 +2,11 @@
   --gx:0px;
   --gy:0px;
   --ga:210deg;
+  --agent:#3b82f6;
 }
 #chat.screen{position:relative}
 #chat .thread{
+  padding-top:calc(70px + env(safe-area-inset-top));
   padding-bottom:calc(96px + env(safe-area-inset-bottom));
 }
 #chat .think-bar{
@@ -15,6 +17,20 @@
   pointer-events:none;
   border:0;
   background:transparent;
+}
+#chat .chat-top{
+  position:absolute;
+  left:0;right:0;top:0;
+  z-index:10;
+  border:0!important;
+  border-bottom:0!important;
+  box-shadow:none!important;
+  background:linear-gradient(180deg, rgba(8,10,14,.55) 0%, rgba(8,10,14,.28) 58%, rgba(8,10,14,0) 100%)!important;
+  backdrop-filter:blur(18px) saturate(160%);
+  -webkit-backdrop-filter:blur(18px) saturate(160%);
+  mask-image:linear-gradient(180deg, #000 0%, #000 72%, transparent 100%);
+  -webkit-mask-image:linear-gradient(180deg, #000 0%, #000 72%, transparent 100%);
+  padding-top:calc(8px + env(safe-area-inset-top));
 }
 #chat .composer{
   position:absolute;
@@ -30,6 +46,9 @@
   mask-image:linear-gradient(180deg, transparent 0%, #000 28%, #000 100%);
   -webkit-mask-image:linear-gradient(180deg, transparent 0%, #000 28%, #000 100%);
 }
+#chat .back,
+#btn-desk,
+#btn-agent-menu,
 .composer input,
 #btn-attach,
 .composer button[type=submit],
@@ -53,9 +72,13 @@
 .composer button[type=submit]{
   border-radius:999px!important;
 }
+#chat .back,
+#btn-desk,
+#btn-agent-menu,
 #btn-attach,
 .agent-close{
   border-radius:50%!important;
+  background-color:transparent!important;
 }
 #btn-attach{
   width:40px;height:40px;font-size:22px;
@@ -70,6 +93,13 @@
   width:34px!important;height:34px!important;
   padding:0!important;margin:0!important;
   z-index:6!important;
+}
+.bubble.user{
+  background:linear-gradient(145deg, var(--agent), color-mix(in srgb, var(--agent) 62%, #000))!important;
+  box-shadow:0 6px 18px color-mix(in srgb, var(--agent) 28%, transparent)!important;
+}
+.bubble.assistant{
+  background:rgba(28,28,30,.95)!important;
 }
 .modal{z-index:60!important}
 #app:has(#agent-modal:not(.hidden)) #btn-attach,
