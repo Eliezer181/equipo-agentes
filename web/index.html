@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Equipo · Agentes</title>
   <link rel="stylesheet" href="/static/styles.css?v=24" />
+  <link rel="stylesheet" href="/static/desk.css?v=24" />
   <style>
     .palette button{width:28px;height:28px;border-radius:50%;border:2px solid #111;padding:0}
     .palette button.on{outline:2px solid #fff}
@@ -17,30 +18,13 @@
     .switch{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
     .stack-actions{display:flex;flex-direction:column;gap:8px}
     .stack-actions button{width:100%}
-    .msg-img{display:block;max-width:100%;border-radius:12px;margin:8px 0 4px}
-    .msg-link,.mention{color:#93c5fd}
-    .mention{font-weight:600}
-    .add-one,.mention-row{display:flex;align-items:center;gap:8px;width:100%;border:0;background:#1c1c1e;color:#f4f4f5;border-radius:10px;padding:10px;text-align:left}
-    #add-member-list{display:flex;flex-direction:column;gap:6px;min-height:24px}
-    .reply-bar,.mention-box{flex-shrink:0;background:#121214;border-top:1px solid #1c1c1e}
-    .reply-bar{display:flex;align-items:center;gap:10px;padding:8px 12px}
-    .reply-bar.hidden,.mention-box.hidden{display:none!important}
-    .reply-copy{min-width:0;flex:1}
-    .reply-copy b{display:block;font-size:12px;color:#93c5fd}
-    .reply-copy span{display:block;font-size:12px;color:#8e8e93;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .mention-box{max-height:168px;overflow:auto;padding:6px;display:flex;flex-direction:column;gap:4px}
-    .quote{font-size:11px;color:#93c5fd;margin-bottom:4px}
-    .bubble.swipeable{transition:transform .12s ease;touch-action:pan-y}
-    #btn-at{width:36px;height:36px;border:0;border-radius:50%;background:#1c1c1e;color:#f4f4f5;font-weight:700;flex-shrink:0}
     .heavy-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 12px;background:#0a0a0c;border-top:1px solid #1c1c1e;font-size:12px;color:#a1a1aa}
     .heavy-bar.on{color:#fbbf24;background:#14110a}
     .heavy-bar label{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
     .heavy-bar input{accent-color:#f59e0b}
     .heavy-hint{color:#71717a;font-size:11px}
-    .heavy-bar.on .heavy-hint{color:#fbbf24}
-    #toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;z-index:50;max-width:90%;background:#1c1c1e;color:#f4f4f5;border:1px solid #333;border-radius:12px;padding:10px 14px;font-size:13px;transition:opacity .2s,transform .2s;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+    #toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;z-index:50;max-width:90%;background:#1c1c1e;color:#f4f4f5;border:1px solid #333;border-radius:12px;padding:10px 14px;font-size:13px;transition:opacity .2s,transform .2s}
     #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-    #toast.heavy{border-color:#f59e0b;color:#fde68a}
   </style>
 </head>
 <body>
@@ -52,15 +36,9 @@
           <div class="brand-title">Equipo</div>
         </div>
         <div class="top-actions">
-          <button type="button" id="btn-search" title="Buscar">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          </button>
-          <button type="button" id="btn-add-group" title="Nuevo grupo">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          </button>
-          <button type="button" id="btn-add" title="Nuevo especialista">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-          </button>
+          <button type="button" id="btn-search" title="Buscar"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+          <button type="button" id="btn-add-group" title="Nuevo grupo"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></button>
+          <button type="button" id="btn-add" title="Nuevo especialista"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
       </header>
       <input id="search" class="search hidden" placeholder="Buscar" />
@@ -80,7 +58,7 @@
         <button type="button" id="btn-agent-menu" title="Opciones">⋮</button>
       </header>
       <div id="thread" class="thread"></div>
-      <div id="heavy-bar" class="heavy-bar on" title="Base44 primero; si falla, Gemini.">
+      <div id="heavy-bar" class="heavy-bar on">
         <label><input type="checkbox" id="heavy-toggle" checked /> <span id="heavy-label">Base44</span></label>
         <span id="heavy-hint" class="heavy-hint">Respuestas más profundas · usa créditos</span>
       </div>
@@ -131,13 +109,10 @@
       <form id="create" class="sheet">
         <div class="grabber"></div>
         <h2>Nuevo agente</h2>
-        <label>Nombre<input name="name" required maxlength="40" placeholder="Ej. Investigador" /></label>
-        <label>Cargo<input name="title" maxlength="40" placeholder="Ej. Research" /></label>
-        <label>Color del casco
-          <input type="hidden" name="color" id="color-input" />
-          <div id="color-palette" class="palette"></div>
-        </label>
-        <label>Cómo trabaja<textarea name="instructions" rows="4" placeholder="Rol, tono, límites."></textarea></label>
+        <label>Nombre<input name="name" required maxlength="40" /></label>
+        <label>Cargo<input name="title" maxlength="40" /></label>
+        <label>Color del casco<input type="hidden" name="color" id="color-input" /><div id="color-palette" class="palette"></div></label>
+        <label>Cómo trabaja<textarea name="instructions" rows="4"></textarea></label>
         <div class="sheet-actions">
           <button type="button" id="btn-cancel" class="ghost">Cancelar</button>
           <button type="submit">Crear</button>
@@ -150,7 +125,7 @@
         <h2>Nuevo grupo</h2>
         <label>Nombre<input name="name" required maxlength="60" /></label>
         <label>Objetivo<textarea name="task" rows="3"></textarea></label>
-        <label>Tu nombre (líder)<input name="leader" maxlength="60" placeholder="Renzo" /></label>
+        <label>Tu nombre (líder)<input name="leader" maxlength="60" /></label>
         <label>Integrantes<div id="group-members" class="members-list"></div></label>
         <div class="sheet-actions">
           <button type="button" id="btn-cancel-group" class="ghost">Cancelar</button>
@@ -179,10 +154,7 @@
         <h2>Agente</h2>
         <label>Nombre<input id="edit-name" required maxlength="40" /></label>
         <label>Rol / cargo<input id="edit-title" maxlength="40" /></label>
-        <label>Color
-          <input type="hidden" id="edit-color" />
-          <div id="edit-palette" class="palette"></div>
-        </label>
+        <label>Color<input type="hidden" id="edit-color" /><div id="edit-palette" class="palette"></div></label>
         <label>Cómo trabaja<textarea id="edit-instructions" rows="4"></textarea></label>
         <label class="switch">Avisarme cuando responde<input type="checkbox" id="notify-toggle" /></label>
         <div class="stack-actions">
