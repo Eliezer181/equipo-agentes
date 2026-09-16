@@ -86,6 +86,19 @@ def save_upload(agent_id: str, data_url: str) -> dict:
     }
 
 
+def _latest_shot(agent_id: str, base_url: str = "") -> str:
+    dest = DATA / "computers" / agent_id / "screenshots"
+    if not dest.exists():
+        return ""
+    files = sorted(dest.glob("*.png"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not files:
+        return ""
+    url = f"/api/specialists/{agent_id}/browser/shot/{files[0].name}"
+    if base_url:
+        url = base_url.rstrip("/") + url
+    return url
+
+
 def install() -> None:
     from app import computer
     if not getattr(computer.execute_tool, "_live_wrapped", False):
@@ -108,3 +121,18 @@ def install() -> None:
 
         write._upload_wrapped = True
         computer.write = write
+
+    if hasattr(computer, "_browser_tool") and not getattr(computer._browser_tool, "_shot_wrapped", False):
+        orig_b = computer._browser_tool
+
+        def _browser_tool(agent_id, tool, is_pro=False, base_url=""):
+            text = orig_b(agent_id, tool, is_pro=is_pro, base_url=base_url)
+            act = str((tool or {}).get("action") or "").lower()
+            if act == "navigate" and "![captura]" not in str(text):
+                shot = _latest_shot(agent_id, base_url)
+                if shot:
+                    text = str(text) + " Ya hay captura: ![captura](" + shot + ")"
+            return text
+
+        _browser_tool._shot_wrapped = True
+        computer._browser_tool = _browser_tool
