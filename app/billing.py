@@ -5,7 +5,7 @@ import os
 
 def config_for(user: dict | None) -> dict:
     addr = (os.getenv("USDT_TRC20_ADDRESS") or "").strip()
-    amount = float(os.getenv("USDT_AMOUNT", "16") or 16)
+    amount = float(os.getenv("USDT_AMOUNT", "30") or 30)
     status = "none"
     if user:
         status = user.get("payment_status") or "none"
