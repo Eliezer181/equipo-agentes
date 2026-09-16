@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/static/glass-fx.css?v=3" />
   <link rel="stylesheet" href="/static/group-sheet.css?v=1" />
   <link rel="stylesheet" href="/static/connectors.css?v=1" />
+  <link rel="stylesheet" href="/static/extras.css?v=1" />
   <style>
     .palette button{width:28px;height:28px;border-radius:50%;border:2px solid #111;padding:0}
     .palette button.on{outline:2px solid #fff}
@@ -43,7 +44,7 @@
           <button type="button" id="btn-add" title="Nuevo especialista"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
       </header>
-      <input id="search" class="search hidden" placeholder="Buscar" />
+      <input id="search" class="search hidden" placeholder="Buscar agentes o mensajes" />
       <div id="list" class="list"></div>
     </section>
     <section id="chat" class="screen">
@@ -210,6 +211,7 @@
   <script src="/static/attach-ui.js?v=1"></script>
   <script src="/static/glass-fx.js?v=1"></script>
   <script src="/static/connectors.js?v=1"></script>
+  <script src="/static/extras-ui.js?v=1"></script>
   <script>
     document.addEventListener("click", function (e) {
       var img = e.target.closest(".bubble img");
