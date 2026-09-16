@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/favicon-32.png" />
   <link rel="apple-touch-icon" href="/static/brand/logo-glou-256.png" />
   <link rel="stylesheet" href="/static/marketing.css?v=6" />
-  <link rel="stylesheet" href="/static/scroll-fx.css?v=2" />
+  <link rel="stylesheet" href="/static/scroll-fx.css?v=3" />
 </head>
 <body class="landing-page">
   <div class="scroll-progress" aria-hidden="true"><i data-scroll-bar></i></div>
@@ -39,7 +39,38 @@
       </div>
     </nav>
 
-    <section class="hero" id="top">
+    <section class="playground" id="top" data-playground data-reveal data-slide="down">
+      <p class="play-kicker">Probá una instrucción</p>
+      <div class="play-shell">
+        <div class="play-head">
+          <span class="play-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>Escribí. O mirá cómo se arma un pedido.</span>
+        </div>
+        <form class="play-form" data-play-form action="/registro" method="get">
+          <div class="play-composer">
+            <textarea
+              class="play-field"
+              data-play-field
+              name="idea"
+              rows="3"
+              maxlength="500"
+              placeholder="Escribí lo que necesitás…"
+              aria-label="Instrucción para el equipo"
+            ></textarea>
+            <button class="play-send" type="submit" aria-label="Empezar con esto">↑</button>
+          </div>
+          <div class="play-chips">
+            <button type="button" class="play-chip" data-play-chip="Armame un brief de una página para lanzar una app en diez días. Quiero objetivo, público, promesa y tres riesgos.">Brief</button>
+            <button type="button" class="play-chip" data-play-chip="Necesito un plan corto de contenido para esta semana: tres piezas, canal y quién las escribe.">Plan</button>
+            <button type="button" class="play-chip" data-play-chip="Revisá este mensaje a un cliente y dejalo más firme, sin perder el tono. Que cierre con un próximo paso.">Revisión</button>
+            <button type="button" class="play-chip" data-play-chip="Tengo una idea a medias. Ordenala en problema, apuesta y primer entregable de 48 horas.">Idea</button>
+          </div>
+        </form>
+      </div>
+      <p class="play-hint">Enter envía. Shift+Enter baja de línea.</p>
+    </section>
+
+    <section class="hero">
       <div class="hero-visual" data-reveal data-slide="down">
         <div class="hero-logo-stage">
           <div class="logo-live logo-live--hero" data-logo data-parallax>
@@ -215,6 +246,6 @@
     </footer>
   </div>
 
-  <script src="/static/glou.js?v=2" defer></script>
+  <script src="/static/glou.js?v=3" defer></script>
 </body>
 </html>
