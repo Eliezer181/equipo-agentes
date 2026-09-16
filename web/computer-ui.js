@@ -249,12 +249,23 @@
     }
   });
 
+  // Como un navegador de verdad: si no parece una URL/dominio, lo busca en Google
+  function omniboxUrl(input) {
+    var v = (input || "").trim();
+    if (/^https?:\/\//i.test(v)) return v;
+    v = v.replace(/^\/+/, "");
+    var looksLikeDomain = /^[a-z0-9-]+(\.[a-z0-9-]+)+([:/?#].*)?$/i.test(v) ||
+      /^localhost(:\d+)?/i.test(v);
+    if (looksLikeDomain && v.indexOf(" ") === -1) return "https://" + v;
+    return "https://www.google.com/search?q=" + encodeURIComponent(v);
+  }
+
   var urlForm = document.getElementById("desk-url-form");
   if (urlForm) urlForm.addEventListener("submit", async function (e) {
     e.preventDefault();
-    var url = ((document.getElementById("desk-url") || {}).value || "").trim();
-    if (!url) return;
-    if (!/^https?:\/\//i.test(url)) url = "https://" + url.replace(/^\/+/, "");
+    var raw = ((document.getElementById("desk-url") || {}).value || "").trim();
+    if (!raw) return;
+    var url = omniboxUrl(raw);
     showApp("browser");
     if (bb.on) {
       // Chrome real: navega la sesión en vivo (el iframe se actualiza solo)
