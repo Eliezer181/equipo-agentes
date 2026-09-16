@@ -20,6 +20,13 @@ PROJECT_ID = (os.environ.get("BROWSERBASE_PROJECT_ID") or "").strip()
 _API = "https://api.browserbase.com/v1"
 SESSION_SECONDS = 900  # 15 min: control de costo por minuto
 MAX_FREE_BROWSERS = 2  # plan gratis: 2 navegadores simultáneos (premium: 3)
+# Viewport FIJO y CONOCIDO: si no se especifica, Browserbase usa un tamaño
+# panorámico (2560x1440) que el visor letterboxea dentro de una pantalla
+# vertical de celular -> las coordenadas fraccionarias del cursor táctil
+# quedaban desalineadas con lo que se ve. Fijamos 16:9 y lo exponemos al
+# frontend para que dibuje su área táctil con la MISMA proporción exacta.
+VIEWPORT_W = 1600
+VIEWPORT_H = 900
 
 # {specialist_id: {"session": id, "viewer": url, "expires": iso}}
 _SESSIONS: dict[str, dict] = {}
@@ -95,6 +102,8 @@ def status(specialist_id: str) -> dict:
         "sessionId": st["session"],
         "expiresAt": s.get("expiresAt"),
         "viewerUrl": st["viewer"],
+        "viewportWidth": VIEWPORT_W,
+        "viewportHeight": VIEWPORT_H,
     }
 
 
@@ -113,7 +122,8 @@ def start(specialist_id: str, is_pro: bool = False) -> dict:
         )
     # keepAlive: sin esto, cerrar la última conexión CDP termina la sesión
     s = _api("/sessions", {"projectId": PROJECT_ID, "timeout": SESSION_SECONDS,
-                           "keepAlive": True})
+                           "keepAlive": True,
+                           "browserSettings": {"viewport": {"width": VIEWPORT_W, "height": VIEWPORT_H}}})
     if not s.get("connectUrl"):
         raise BrowserError("la sesión no devolvió conexión")
     d = _api(f"/sessions/{s['id']}/debug")
@@ -129,6 +139,8 @@ def start(specialist_id: str, is_pro: bool = False) -> dict:
         "sessionId": s["id"],
         "expiresAt": s.get("expiresAt"),
         "viewerUrl": viewer,
+        "viewportWidth": VIEWPORT_W,
+        "viewportHeight": VIEWPORT_H,
     }
 
 
@@ -207,12 +219,11 @@ def action(specialist_id: str, do: str, url: str = "",
             elif do == "click_xy":
                 if x is None or y is None:
                     raise BrowserError("faltan las coordenadas x,y")
-                # page.viewport_size es poco confiable en sesiones conectadas por CDP
-                # (Browserbase): siempre viene None. Usamos el tamaño real de la ventana.
-                vp = page.evaluate("() => ({width: window.innerWidth, height: window.innerHeight})")
+                # Viewport fijo y conocido (VIEWPORT_W/H) desde que la sesión se creó
+                # con browserSettings.viewport -> las fracciones siempre son exactas.
                 page.mouse.click(
-                    max(0.0, min(1.0, x)) * vp["width"],
-                    max(0.0, min(1.0, y)) * vp["height"],
+                    max(0.0, min(1.0, x)) * VIEWPORT_W,
+                    max(0.0, min(1.0, y)) * VIEWPORT_H,
                 )
             elif do == "type_focused":
                 if not text:

@@ -188,7 +188,7 @@
 
   // ---------- Navegador: Chrome real en la nube (Browserbase) ----------
   var chromeBtn = document.getElementById("desk-chrome-toggle");
-  var bb = { on: false, viewerUrl: "", expiresAt: "" };
+  var bb = { on: false, viewerUrl: "", expiresAt: "", vpW: 1600, vpH: 900 };
 
   function bbRender() {
     if (!browserEl) return;
@@ -206,17 +206,21 @@
         "<button type=\"button\" class=\"desk-fs-exit\" title=\"Achicar\">\u2715</button>" +
         "<div class=\"desk-touch-overlay\"></div>" +
         "<div class=\"desk-frame-wrap\">" +
+        "<div class=\"desk-frame-box\">" +
         "<iframe class=\"desk-frame\" src=\"" + viewer + "\" " +
         "allow=\"clipboard-read; clipboard-write\" title=\"Chrome del agente\"></iframe>" +
         "<div class=\"desk-cursor\"><svg viewBox='0 0 24 24' width='22' height='22'><path d='M4 2 L20 12.5 L12.3 13.8 L9 21 Z' fill='#f5f5f7' stroke='#0a0a0a' stroke-width='1.3' stroke-linejoin='round'/></svg></div>" +
+        "</div>" +
         "</div>" +
         "<button type=\"button\" class=\"desk-corner-btn desk-corner-clip\" title=\"Portapapeles\"><svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='6' y='4' width='12' height='17' rx='2'/><path d='M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1'/><path d='M9 10h6M9 14h6M9 18h3'/></svg></button>" +
         "<button type=\"button\" class=\"desk-corner-btn desk-corner-kb\" title=\"Teclado\"><svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='6' width='20' height='12' rx='2'/><path d='M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12'/></svg></button>" +
         "<input class=\"desk-hidden-input\" autocomplete=\"off\" autocapitalize=\"off\" spellcheck=\"false\" />";
       desk.classList.add("desk-fullscreen");
+      sizeFrameBox();
       attachTouchCursor();
       attachKeyboard();
       attachClipboard();
+      window.addEventListener("resize", sizeFrameBox);
       var exitBtn = browserEl.querySelector(".desk-fs-exit");
       if (exitBtn) exitBtn.addEventListener("click", function () {
         desk.classList.remove("desk-fullscreen");
@@ -226,10 +230,28 @@
     }
   }
 
+  // Ajusta el tamaño del recuadro interno para que tenga EXACTAMENTE la misma
+  // proporción que el viewport remoto (16:9 por defecto) -> sin franjas en
+  // blanco/letterbox, así las coordenadas fraccionarias del toque coinciden
+  // 1:1 con lo que se ve y con lo que recibe Playwright del lado del server.
+  function sizeFrameBox() {
+    var wrap = browserEl.querySelector(".desk-frame-wrap");
+    var box = browserEl.querySelector(".desk-frame-box");
+    if (!wrap || !box) return;
+    var availW = wrap.clientWidth, availH = wrap.clientHeight;
+    var ratio = bb.vpW / bb.vpH;
+    var w = availW, h = w / ratio;
+    if (h > availH) { h = availH; w = h * ratio; }
+    box.style.width = w + "px";
+    box.style.height = h + "px";
+  }
+
   // ---------- Cursor tipo flecha: se mueve como un trackpad (relativo al
   // arrastre, no pegado al dedo) para que el dedo nunca tape lo que apuntás.
   function attachTouchCursor() {
-    var wrap = browserEl.querySelector(".desk-frame-wrap");
+    // OJO: usamos el recuadro interno (proporción exacta 16:9), no el wrap
+    // exterior, para que la fracción 0..1 coincida 1:1 con el viewport real.
+    var wrap = browserEl.querySelector(".desk-frame-box");
     var overlay = browserEl.querySelector(".desk-touch-overlay");
     var cursor = browserEl.querySelector(".desk-cursor");
     if (!wrap || !overlay || !cursor) return;
@@ -425,6 +447,8 @@
       bb.on = !!st.on;
       bb.viewerUrl = st.viewerUrl || "";
       bb.expiresAt = st.expiresAt || "";
+      bb.vpW = st.viewportWidth || bb.vpW;
+      bb.vpH = st.viewportHeight || bb.vpH;
       bbRender();
     } catch (err) { /* sin estado */ }
   }
@@ -447,6 +471,7 @@
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ do: "start" })
       });
       bb.on = !!st.on; bb.viewerUrl = st.viewerUrl || ""; bb.expiresAt = st.expiresAt || "";
+      bb.vpW = st.viewportWidth || bb.vpW; bb.vpH = st.viewportHeight || bb.vpH;
       bbRender();
       pushTerm(["\u2192 navegador en vivo listo"]);
     } catch (err) {

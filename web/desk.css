@@ -90,9 +90,13 @@
 .desk-browser.browsing{position:relative;overflow:hidden;padding:0;display:flex;flex-direction:column}
 .desk-frame-wrap{
   position:relative;flex:1;min-height:0;width:100%;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
   transition:transform .18s ease;
 }
-.desk-frame-wrap .desk-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;pointer-events:none}
+/* Recuadro con la MISMA proporción que el viewport remoto (JS lo mide en
+   sizeFrameBox) -> sin franjas de letterbox, coordenadas 1:1 con la página real */
+.desk-frame-box{position:relative;background:#000}
+.desk-frame-box .desk-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;pointer-events:none}
 
 /* Overlay táctil: cubre TODO el panel (no solo la pantalla visible), así el
    dedo puede arrastrar lejos de lo que se está apuntando. */
