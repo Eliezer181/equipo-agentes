@@ -24,9 +24,9 @@
       <h1>Creá tu cuenta</h1>
       <p class="sub">Acceso freemium. Sin tarjeta.</p>
       <form id="register-form">
-        <label>Email<input name="email" type="email" required autocomplete="email" placeholder="tu@email.com" /></label>
-        <label>Contraseña<input name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres" /></label>
-        <label>Confirmá contraseña<input name="password2" type="password" required minlength="8" autocomplete="new-password" /></label>
+        <label>Email<input id="reg-email" name="email" type="email" required autocomplete="email" placeholder="tu@email.com" /></label>
+        <label>Contraseña<input id="reg-password" name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres" /></label>
+        <label>Confirmá contraseña<input id="reg-password2" name="password2" type="password" required minlength="8" autocomplete="new-password" /></label>
         <button class="btn btn-primary" type="submit">Registrarme</button>
         <p id="reg-msg" class="msg hidden"></p>
       </form>
@@ -37,8 +37,8 @@
       <h1>Iniciar sesión</h1>
       <p class="sub">Entrá a tu equipo de agentes.</p>
       <form id="login-form">
-        <label>Email<input name="email" type="email" required autocomplete="email" /></label>
-        <label>Contraseña<input name="password" type="password" required autocomplete="current-password" /></label>
+        <label>Email<input id="login-email" name="email" type="email" required autocomplete="email" /></label>
+        <label>Contraseña<input id="login-password" name="password" type="password" required autocomplete="current-password" /></label>
         <button class="btn btn-primary" type="submit">Entrar</button>
         <p id="login-msg" class="msg hidden"></p>
       </form>
