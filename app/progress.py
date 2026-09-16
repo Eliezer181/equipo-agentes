@@ -25,6 +25,10 @@ def _path(agent_id: str) -> Path:
 def live_for_tool(tool: dict) -> str:
     kind = (tool or {}).get("tool")
     act = str((tool or {}).get("action") or "").lower()
+    if kind == "github":
+        return "En GitHub…"
+    if kind == "gmail":
+        return "En Gmail…"
     if kind == "browser":
         if act == "screenshot":
             return "Tomando captura…"
@@ -108,18 +112,70 @@ def _latest_shot(agent_id: str, base_url: str = "") -> str:
 
 
 def install() -> None:
-    from app import computer
+    from app import computer, connectors
     if _SHOT_HINT not in (computer.TOOL_HINT or ""):
         computer.TOOL_HINT = (computer.TOOL_HINT or "") + _SHOT_HINT
+    if connectors.HINT not in (computer.TOOL_HINT or ""):
+        computer.TOOL_HINT = (computer.TOOL_HINT or "") + connectors.HINT
+
+    try:
+        from app.main import app
+        if not getattr(app, "_connectors_on", False):
+            connectors.register(app)
+            app._connectors_on = True
+    except Exception:
+        pass
+
+    if not getattr(computer.extract_tool, "_conn_wrapped", False):
+        orig_ex = computer.extract_tool
+
+        def extract_tool(text):
+            found = orig_ex(text)
+            if found:
+                return found
+            import re
+            for m in list(re.finditer(r"```json\s*(\{.*?\})\s*```", text or "", re.S))[::-1]:
+                try:
+                    data = json.loads(m.group(1))
+                except Exception:
+                    continue
+                if isinstance(data, dict) and data.get("tool") in {"github", "gmail"}:
+                    return data
+            return None
+
+        extract_tool._conn_wrapped = True
+        computer.extract_tool = extract_tool
 
     if not getattr(computer.execute_tool, "_live_wrapped", False):
         orig = computer.execute_tool
 
         def wrapped(agent_id, agent_name=None, tool=None, is_pro=False, base_url="", **kw):
             set_live(agent_id, live_for_tool(tool or {}))
+            kind = (tool or {}).get("tool")
+            if kind in {"github", "gmail"}:
+                try:
+                    return connectors.execute(tool or {})
+                except Exception as exc:
+                    return "error del conector: " + str(exc)
             return orig(agent_id, agent_name, tool, is_pro=is_pro, base_url=base_url, **kw)
 
         wrapped._live_wrapped = True
+        computer.execute_tool = wrapped
+    elif not getattr(computer.execute_tool, "_conn_exec", False):
+        inner = computer.execute_tool
+
+        def wrapped(agent_id, agent_name=None, tool=None, is_pro=False, base_url="", **kw):
+            kind = (tool or {}).get("tool")
+            if kind in {"github", "gmail"}:
+                set_live(agent_id, live_for_tool(tool or {}))
+                try:
+                    return connectors.execute(tool or {})
+                except Exception as exc:
+                    return "error del conector: " + str(exc)
+            return inner(agent_id, agent_name, tool, is_pro=is_pro, base_url=base_url, **kw)
+
+        wrapped._live_wrapped = True
+        wrapped._conn_exec = True
         computer.execute_tool = wrapped
 
     if not getattr(computer.write, "_upload_wrapped", False):
