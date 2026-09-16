@@ -208,6 +208,31 @@ def action(specialist_id: str, do: str, url: str = "",
                 if not selector:
                     raise BrowserError("falta el selector css del elemento")
                 page.click(selector, timeout=10000)
+            elif do == "click_text":
+                # Click por TEXTO VISIBLE (para que el AGENTE use el navegador
+                # desde el chat sin conocer los selectores CSS de la página)
+                if not text:
+                    raise BrowserError("falta el texto del elemento a clickear")
+                loc = page.get_by_text(text, exact=False).first
+                loc.click(timeout=10000)
+            elif do == "elements":
+                # Lista de elementos clickeables con su texto -> el agente sabe
+                # qué puede clickear sin adivinar selectores
+                items = page.evaluate("""() => {
+                  const sel = 'a, button, input, textarea, select, [role=button], [role=link], [onclick]';
+                  const seen = new Set(); const out = [];
+                  for (const el of document.querySelectorAll(sel)) {
+                    const r = el.getBoundingClientRect();
+                    if (r.width === 0 || r.height === 0) continue;
+                    let t = (el.innerText || el.value || el.placeholder || el.getAttribute('aria-label') || '').trim();
+                    if (!t) continue;
+                    if (seen.has(t)) continue; seen.add(t);
+                    out.push({text: t.slice(0, 80), tag: el.tagName.toLowerCase()});
+                    if (out.length >= 60) break;
+                  }
+                  return out;
+                }""")
+                out.update(elements=items)
             elif do == "type":
                 if not selector:
                     raise BrowserError("falta el selector css del campo")

@@ -253,14 +253,21 @@ TOOL_HINT = (
     '{"tool":"write","name":"nota.md","body":"contenido"} · '
     '{"tool":"read","name":"nota.md"} · '
     '{"tool":"fetch","url":"https://ejemplo.com"}\n'
-    "También tenés un NAVEGADOR REAL (Chrome en la nube) que el usuario ve en vivo:\n"
-    '```json\n{"tool":"browser","action":"start"}\n```\n'
-    'Después: {"tool":"browser","action":"navigate","url":"https://…"} · '
-    '{"tool":"browser","action":"click","selector":"#boton"} · '
-    '{"tool":"browser","action":"type","selector":"input[name=q]","text":"hola"} · '
-    '{"tool":"browser","action":"read"} · '
-    '{"tool":"browser","action":"stop"}\n'
-    "Vas a recibir el resultado y podés seguir usándola o responder final. "
+    "También tenés un NAVEGADOR REAL (Chrome en la nube) que el usuario ve en vivo "
+    "mientras lo usás. Si el usuario te pide buscar, abrir o hacer algo en la web, "
+    "MANEJALO VOS: encendé (se enciende solo si ya lo está), navegá, leé y clickeá "
+    "hasta completar la tarea, y contale lo que encontraste.\n"
+    '```json\n{"tool":"browser","action":"navigate","url":"https://…"}\n```\n'
+    'Click por TEXTO VISIBLE (lo normal): {"tool":"browser","action":"click_text","text":"Iniciar sesión"}\n'
+    'Escribir en el campo enfocado: {"tool":"browser","action":"type","text":"precio del dólar"}\n'
+    'Tecla: {"tool":"browser","action":"key","text":"Enter"}\n'
+    'Leer la página: {"tool":"browser","action":"read"} · '
+    'Listar botones/links clickeables: {"tool":"browser","action":"elements"}\n'
+    'Scroll: {"tool":"browser","action":"scroll","text":"down"} · '
+    'Atrás: {"tool":"browser","action":"back"} · '
+    'Apagar: {"tool":"browser","action":"stop"}\n'
+    'Flujo típico: navigate → read (o elements) → click_text → read → respondé al usuario. '
+    "Vas a recibir el resultado de cada acción y podés seguir usándola o responder final. "
     "Después del bloque podés escribir una frase breve. Si no la necesitás, "
     "respondé normal sin bloque."
 )
@@ -291,6 +298,17 @@ def _browser_tool(agent_id: str, tool: dict, is_pro: bool = False) -> str:
 
     act = str(tool.get("action") or "navigate").strip().lower()
     try:
+        # Auto-encendido: si el agente quiere navegar sin encender primero,
+        # encendemos por él (el usuario lo ve aparecer en vivo en su escritorio)
+        if act not in {"start", "stop", "status"} and not browsers.status(agent_id).get("on"):
+            browsers.start(agent_id, is_pro=is_pro)
+        if act not in {"start", "stop", "status", "navigate", "read", "click",
+                       "click_text", "type", "elements", "key", "scroll", "back"}:
+            return ("acción de navegador desconocida (usá start|navigate|click_text|"
+                    "type|key|elements|read|scroll|back|stop)")
+        if act == "status":
+            st = browsers.status(agent_id)
+            return ("navegador encendido, expira " + str(st.get("expiresAt"))) if st.get("on") else "navegador apagado"
         if act == "start":
             st = browsers.start(agent_id, is_pro=is_pro)
             return (
@@ -311,12 +329,35 @@ def _browser_tool(agent_id: str, tool: dict, is_pro: bool = False) -> str:
         if act == "click":
             r = browsers.action(agent_id, "click", selector=str(tool.get("selector") or ""))
             return "click OK — ahora en: " + str(r.get("title") or r.get("url"))
+        if act == "click_text":
+            # Click por TEXTO VISIBLE: la forma natural de ordenar desde el chat
+            r = browsers.action(agent_id, "click_text", text=str(tool.get("text") or tool.get("selector") or ""))
+            return "click en '" + str(tool.get("text")) + "' OK — ahora en: " + str(r.get("title") or r.get("url"))
         if act == "type":
-            r = browsers.action(agent_id, "type",
-                                selector=str(tool.get("selector") or ""),
-                                text=str(tool.get("text") or ""))
+            if tool.get("selector"):
+                r = browsers.action(agent_id, "type",
+                                    selector=str(tool.get("selector")),
+                                    text=str(tool.get("text") or ""))
+            else:
+                # sin selector: escribe en el campo enfocado (tras un click_text)
+                r = browsers.action(agent_id, "type_focused", text=str(tool.get("text") or ""))
             return "texto escrito en " + str(r.get("url"))
-        return "acción de navegador desconocida (usá start|navigate|click|type|read|stop)"
+        if act == "key":
+            r = browsers.action(agent_id, "key", text=str(tool.get("text") or "Enter"))
+            return "tecla " + str(tool.get("text") or "Enter") + " OK — ahora en: " + str(r.get("url"))
+        if act == "elements":
+            r = browsers.action(agent_id, "elements")
+            els = r.get("elements") or []
+            if not els:
+                return "no se encontraron elementos clickeables con texto en la página"
+            return "elementos clickeables de la página (usá click_text con estos textos):\n" + "\n".join(
+                "- [" + str(e.get("tag")) + "] " + str(e.get("text")) for e in els[:40])
+        if act == "scroll":
+            browsers.action(agent_id, "scroll", text=str(tool.get("text") or "down"))
+            return "scroll OK"
+        if act == "back":
+            r = browsers.action(agent_id, "back")
+            return "atrás OK — ahora en: " + str(r.get("url"))
     except browsers.BrowserError as exc:
         return f"error de navegador: {exc}"
 

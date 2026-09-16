@@ -341,8 +341,9 @@ def api_chat(specialist_id: str, payload: ChatIn, request: Request):
             scope=f"specialist:{specialist_id}",
         )
         # Loop de herramientas: el agente puede usar SU computadora
-        # (bash, python, archivos, fetch). Máx 3 rondas por mensaje.
-        for _round in range(3):
+        # (bash, python, archivos, fetch, NAVEGADOR REAL). Máx 6 rondas:
+        # una tarea de navegación real necesita navigate→read→click→read→…
+        for _round in range(6):
             tool = computer.extract_tool(text)
             if not tool:
                 break
@@ -351,7 +352,7 @@ def api_chat(specialist_id: str, payload: ChatIn, request: Request):
             note = (
                 "RESULTADO DE TU COMPUTADORA:\n" + result + "\n\n"
                 + ("Última ronda: usá este resultado y respondé al usuario sin más bloques JSON."
-                   if _round == 2 else
+                   if _round == 5 else
                    "Podés usar otra herramienta con otro bloque JSON o responder al usuario.")
             )
             messages.append({"role": "user", "content": note, "at": _now()})

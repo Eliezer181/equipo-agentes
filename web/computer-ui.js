@@ -227,6 +227,12 @@
       });
     } else {
       desk.classList.remove("desk-fullscreen");
+      // Si se apagó (botón o expiración), limpiar la vista en vivo muerta.
+      // Solo si hay vista en vivo (desk-frame-box); la vista proxy no se toca.
+      if (browserEl.classList.contains("browsing") && browserEl.querySelector(".desk-frame-box")) {
+        browserEl.classList.remove("browsing");
+        browserEl.innerHTML = "<p class=\"desk-empty\">Chrome real apagado.</p>";
+      }
     }
   }
 
@@ -441,6 +447,7 @@
     });
   }
 
+  var bbLastKey = "";
   async function bbStatus() {
     try {
       var st = await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser");
@@ -449,6 +456,7 @@
       bb.expiresAt = st.expiresAt || "";
       bb.vpW = st.viewportWidth || bb.vpW;
       bb.vpH = st.viewportHeight || bb.vpH;
+      bbLastKey = (bb.on ? "1" : "0") + "|" + bb.viewerUrl;
       bbRender();
     } catch (err) { /* sin estado */ }
   }
@@ -544,6 +552,27 @@
   });
 
   bbStatus();
+
+  // Polling: si el AGENTE enciende el navegador desde el chat (tool browser),
+  // el escritorio lo muestra en vivo sin que el usuario recargue la página.
+  // Solo re-renderiza si cambió el estado (evita recargar el iframe en vano).
+  setInterval(async function () {
+    try {
+      var st = await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser");
+      var key = (st.on ? "1" : "0") + "|" + (st.viewerUrl || "");
+      if (key !== bbLastKey) {
+        bbLastKey = key;
+        var wasOn = bb.on;
+        bb.on = !!st.on;
+        bb.viewerUrl = st.viewerUrl || "";
+        bb.expiresAt = st.expiresAt || "";
+        bb.vpW = st.viewportWidth || bb.vpW;
+        bb.vpH = st.viewportHeight || bb.vpH;
+        bbRender();
+        if (!wasOn && bb.on) pushTerm(["\u2192 el agente encendi\u00f3 el Chrome en vivo"]);
+      }
+    } catch (err) { /* sin cambios */ }
+  }, 5000);
 
   var termForm = document.getElementById("desk-term-form");
   if (termForm) termForm.addEventListener("submit", async function (e) {
