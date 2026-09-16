@@ -1,4 +1,21 @@
 (function () {
+  var actions = document.querySelector(".top-actions");
+  if (actions && !document.getElementById("btn-settings")) {
+    var gear = document.createElement("button");
+    gear.type = "button";
+    gear.id = "btn-settings";
+    gear.title = "Ajustes";
+    gear.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+    var search = document.getElementById("btn-search");
+    actions.insertBefore(gear, search || actions.firstChild);
+  }
+  if (!document.querySelector('link[href*="extras.css"]')) {
+    var link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/static/extras.css?v=1";
+    document.head.appendChild(link);
+  }
+
   var chat = document.getElementById("chat");
   var thread = document.getElementById("thread");
   if (chat && thread && !document.getElementById("jump-bottom")) {
@@ -16,8 +33,7 @@
     jump.addEventListener("click", function () {
       thread.scrollTo({ top: thread.scrollHeight, behavior: "smooth" });
     });
-    var mo = new MutationObserver(syncJump);
-    mo.observe(thread, { childList: true, subtree: true });
+    new MutationObserver(syncJump).observe(thread, { childList: true, subtree: true });
   }
 
   var searchEl = document.getElementById("search");
@@ -58,16 +74,16 @@
   modal.id = "settings-modal";
   modal.className = "modal hidden";
   modal.innerHTML = '<div class="sheet"><button type="button" id="set-x">\u00d7</button><h2>Ajustes</h2>' +
-    '<button type="button" class="set-row" id="set-conn"><div>Conectores<div><span>GitHub, Gmail y el resto</span></div></div></button>' +
-    '<button type="button" class="set-row" id="set-help"><div>Ayuda<div><span>Cómo usar Glou y el navegador</span></div></div></button>' +
-    '<button type="button" class="set-row" id="set-about"><div>Acerca de Glou<div><span>Agentes con computadora en la nube</span></div></div></button>' +
-    '<button type="button" class="set-row" id="set-out"><div>Cerrar sesión<div><span>Salir de esta cuenta</span></div></div></button></div>';
+    '<button type="button" class="set-row" id="set-conn"><div>Conectores<span>GitHub, Gmail y el resto</span></div></button>' +
+    '<button type="button" class="set-row" id="set-help"><div>Ayuda<span>Cómo usar Glou y el navegador</span></div></button>' +
+    '<button type="button" class="set-row" id="set-about"><div>Acerca de Glou<span>Agentes con computadora en la nube</span></div></button>' +
+    '<button type="button" class="set-row" id="set-out"><div>Cerrar sesión<span>Salir de esta cuenta</span></div></button></div>';
   (document.getElementById("app") || document.body).appendChild(modal);
   function closeSet() { modal.classList.add("hidden"); }
   document.getElementById("set-x").onclick = closeSet;
   modal.addEventListener("click", function (e) { if (e.target === modal) closeSet(); });
-  var gear = document.getElementById("btn-settings");
-  if (gear) gear.addEventListener("click", function () { modal.classList.remove("hidden"); });
+  var gearBtn = document.getElementById("btn-settings");
+  if (gearBtn) gearBtn.addEventListener("click", function () { modal.classList.remove("hidden"); });
   document.getElementById("set-conn").onclick = function () {
     closeSet();
     var c = document.getElementById("conn-modal");
