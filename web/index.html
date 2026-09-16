@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/static/styles.css?v=28" />
   <link rel="stylesheet" href="/static/desk.css?v=31" />
   <link rel="stylesheet" href="/static/agent-sheet.css?v=3" />
+  <link rel="stylesheet" href="/static/glass-fx.css?v=1" />
   <style>
     .palette button{width:28px;height:28px;border-radius:50%;border:2px solid #111;padding:0}
     .palette button.on{outline:2px solid #fff}
@@ -23,7 +24,6 @@
     .composer{background:transparent!important;border-top:0!important;padding:8px 10px calc(12px + env(safe-area-inset-bottom))!important;gap:8px!important}
     .composer input{color:#f5f5f7!important}
     .composer input::placeholder{color:rgba(235,235,245,.45)}
-    #btn-at{width:36px;height:36px;border:0;border-radius:50%;background:rgba(255,255,255,.08);color:#f4f4f5;font-weight:700}
     #btn-at.hidden{display:none!important}
   </style>
 </head>
@@ -204,6 +204,7 @@
   <script src="/static/status-ui.js?v=3"></script>
   <script src="/static/agent-sheet.js?v=3"></script>
   <script src="/static/attach-ui.js?v=1"></script>
+  <script src="/static/glass-fx.js?v=1"></script>
   <script>
     document.addEventListener("click", function (e) {
       var img = e.target.closest(".bubble img");
