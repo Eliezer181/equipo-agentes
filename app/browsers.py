@@ -219,11 +219,21 @@ def action(specialist_id: str, do: str, url: str = "",
             elif do == "click_xy":
                 if x is None or y is None:
                     raise BrowserError("faltan las coordenadas x,y")
-                # Viewport fijo y conocido (VIEWPORT_W/H) desde que la sesión se creó
-                # con browserSettings.viewport -> las fracciones siempre son exactas.
+                # A prueba de balas: medir el viewport REAL de esta sesión en el
+                # momento del click. Las sesiones creadas antes del fix de viewport
+                # fijo siguen en 2560x1440; si asumiéramos VIEWPORT_W/H los clicks
+                # caerían en otro lado. evaluate() tarda milisegundos.
+                try:
+                    real = page.evaluate(
+                        "() => ({w: window.innerWidth, h: window.innerHeight})")
+                    w, h = real["w"], real["h"]
+                except Exception:
+                    w, h = VIEWPORT_W, VIEWPORT_H
+                if not w or not h:
+                    w, h = VIEWPORT_W, VIEWPORT_H
                 page.mouse.click(
-                    max(0.0, min(1.0, x)) * VIEWPORT_W,
-                    max(0.0, min(1.0, y)) * VIEWPORT_H,
+                    max(0.0, min(1.0, x)) * w,
+                    max(0.0, min(1.0, y)) * h,
                 )
             elif do == "type_focused":
                 if not text:
