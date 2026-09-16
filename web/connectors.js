@@ -19,13 +19,30 @@
   var modal = document.createElement("div");
   modal.id = "conn-modal";
   modal.className = "modal hidden";
-  modal.innerHTML = '<div class="sheet"><button type="button" id="conn-x">\u00d7</button><h2>Conectores</h2><p class="info-task">Tocá el logo. GitHub y Gmail se autorizan al toque.</p><div id="conn-list" class="conn-grid"></div><div id="conn-go" class="conn-go" hidden></div></div>';
+  modal.innerHTML = '<div class="sheet"><button type="button" id="conn-x">\u00d7</button><h2>Conectores</h2><p class="info-task" id="conn-lead">Tocá el logo. GitHub y Gmail se autorizan al toque.</p><div id="conn-go" class="conn-go" hidden></div><div id="conn-list" class="conn-grid"></div></div>';
   (document.getElementById("app") || document.body).appendChild(modal);
+  var sheet = modal.querySelector(".sheet");
   var list = document.getElementById("conn-list");
   var go = document.getElementById("conn-go");
-  function close() { modal.classList.add("hidden"); }
+  var lead = document.getElementById("conn-lead");
+  function close() { modal.classList.add("hidden"); showGrid(); }
   document.getElementById("conn-x").onclick = close;
   modal.addEventListener("click", function (e) { if (e.target === modal) close(); });
+
+  function showGrid() {
+    go.hidden = true;
+    go.innerHTML = "";
+    list.style.display = "grid";
+    lead.style.display = "block";
+    sheet.scrollTop = 0;
+  }
+  function showStep(html) {
+    list.style.display = "none";
+    lead.style.display = "none";
+    go.hidden = false;
+    go.innerHTML = html;
+    sheet.scrollTop = 0;
+  }
 
   function paint(items) {
     list.innerHTML = (items || []).map(function (it) {
@@ -43,7 +60,7 @@
       var data = await (await fetch("/api/connectors")).json();
       if (data && data.items && data.items.length) paint(data.items);
     } catch (e) {}
-    if (go) go.hidden = true;
+    showGrid();
   }
 
   window.openConnectors = function () {
@@ -61,22 +78,19 @@
     var ready = tile.getAttribute("data-ready") === "1";
     var on = tile.getAttribute("data-on") === "1";
     var name = tile.getAttribute("data-name");
-    go.hidden = false;
     if (!ready) {
-      go.innerHTML = '<b>' + name + '</b><p>Este conector todavía no está activo.</p>';
+      showStep('<b>' + name + '</b><p>Este conector todavía no está activo.</p><button type="button" class="ghost" data-cancel="1">Volver</button>');
       return;
     }
     if (on) {
-      go.innerHTML = '<b>' + name + ' ya está conectado</b><button type="button" data-off="' + id + '">Desconectar</button>';
+      showStep('<b>' + name + ' ya está conectado</b><button type="button" data-off="' + id + '">Desconectar</button><button type="button" class="ghost" data-cancel="1">Volver</button>');
       return;
     }
-    go.innerHTML = '<b>Conectar ' + name + '</b><p>Te llevo a autorizar.</p>' +
-      '<button type="button" data-start="' + id + '">Continuar con ' + name + '</button>' +
-      '<button type="button" class="ghost" data-cancel="1">Cancelar</button>';
+    showStep('<b>Conectar ' + name + '</b><p>Te llevo a autorizar.</p><button type="button" data-start="' + id + '">Continuar con ' + name + '</button><button type="button" class="ghost" data-cancel="1">Volver</button>');
   });
 
   go.addEventListener("click", async function (e) {
-    if (e.target.getAttribute("data-cancel")) { go.hidden = true; return; }
+    if (e.target.getAttribute("data-cancel")) { showGrid(); return; }
     var off = e.target.getAttribute("data-off");
     if (off) { await fetch("/api/connectors/" + off, { method: "DELETE" }); load(); return; }
     var start = e.target.getAttribute("data-start");
@@ -84,8 +98,6 @@
     var res = await fetch("/api/connectors/" + start + "/start");
     var data = await res.json().catch(function () { return {}; });
     if (data.url) { location.href = data.url; return; }
-    go.innerHTML = '<b>Todavía falta OAuth en Fly</b><p>Cuando pongas GITHUB_OAUTH_CLIENT_ID y el secret, este botón entra directo.</p>';
+    showStep('<b>Todavía falta OAuth en Fly</b><p>Cuando pongas GITHUB_OAUTH_CLIENT_ID y el secret, este botón entra directo.</p><button type="button" class="ghost" data-cancel="1">Volver</button>');
   });
-
-  load();
 })();
