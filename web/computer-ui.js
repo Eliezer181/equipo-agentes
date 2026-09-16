@@ -186,14 +186,87 @@
     }
   });
 
+  // ---------- Navegador: Chrome real en la nube (Browserbase) ----------
+  var chromeBtn = document.getElementById("desk-chrome-toggle");
+  var bb = { on: false, viewerUrl: "", expiresAt: "" };
+
+  function bbRender() {
+    if (!browserEl) return;
+    if (chromeBtn) {
+      chromeBtn.textContent = bb.on ? "Apagar Chrome real" : "\u26a1 Chrome real";
+      chromeBtn.classList.toggle("on", bb.on);
+      chromeBtn.title = bb.on ? ("Expira: " + bb.expiresAt) : "Enciende un Chrome real en la nube";
+    }
+    if (bb.on && bb.viewerUrl) {
+      browserEl.classList.add("browsing");
+      browserEl.innerHTML =
+        "<div class=\"desk-real-badge\">\u25cf Chrome en vivo (se apaga solo a los 15 min)</div>" +
+        "<iframe class=\"desk-frame\" src=\"" + bb.viewerUrl + "\" " +
+        "allow=\"clipboard-read; clipboard-write\" title=\"Chrome del agente\"></iframe>";
+    }
+  }
+
+  async function bbStatus() {
+    try {
+      var st = await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser");
+      bb.on = !!st.on;
+      bb.viewerUrl = st.viewerUrl || "";
+      bb.expiresAt = st.expiresAt || "";
+      bbRender();
+    } catch (err) { /* sin estado */ }
+  }
+
+  if (chromeBtn) chromeBtn.addEventListener("click", async function () {
+    if (bb.on) {
+      bb = { on: false, viewerUrl: "", expiresAt: "" };
+      browserEl.innerHTML = "<p class=\"desk-empty\">Chrome real apagado.</p>";
+      bbRender();
+      pushTerm(["$ chrome stop"]);
+      try { await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ do: "stop" })
+      }); } catch (err) {}
+      return;
+    }
+    chromeBtn.textContent = "Encendiendo\u2026";
+    pushTerm(["$ chrome start"]);
+    try {
+      var st = await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ do: "start" })
+      });
+      bb.on = !!st.on; bb.viewerUrl = st.viewerUrl || ""; bb.expiresAt = st.expiresAt || "";
+      bbRender();
+      pushTerm(["\u2192 navegador en vivo listo"]);
+    } catch (err) {
+      chromeBtn.textContent = "\u26a1 Chrome real";
+      browserEl.innerHTML = "<p class=\"desk-empty\">No se pudo encender: " + escapeHtml(err.message) + "</p>";
+    }
+  });
+
   var urlForm = document.getElementById("desk-url-form");
   if (urlForm) urlForm.addEventListener("submit", async function (e) {
     e.preventDefault();
     var url = ((document.getElementById("desk-url") || {}).value || "").trim();
     if (!url) return;
     if (!/^https?:\/\//i.test(url)) url = "https://" + url.replace(/^\/+/, "");
-    browserEl.innerHTML = "<p class=\"desk-empty\">Cargando " + escapeHtml(url) + "…</p>";
     showApp("browser");
+    if (bb.on) {
+      // Chrome real: navega la sesión en vivo (el iframe se actualiza solo)
+      pushTerm(["$ chrome open " + url]);
+      var badge = browserEl.querySelector(".desk-real-badge");
+      if (badge) badge.textContent = "\u25cf navegando\u2026";
+      try {
+        var r = await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ do: "navigate", url: url })
+        });
+        pushTerm(["\u2192 " + (r.title || r.url)]);
+      } catch (err) {
+        alert("No se pudo navegar: " + err.message);
+      }
+      return;
+    }
+    // Sin Chrome real: vista estática rápida vía proxy
+    browserEl.innerHTML = "<p class=\"desk-empty\">Cargando " + escapeHtml(url) + "…</p>";
     var proxy = "/api/specialists/" + encodeURIComponent(agentId) +
       "/computer/proxy?url=" + encodeURIComponent(url);
     pushTerm(["$ open " + url]);
@@ -202,6 +275,8 @@
       "<iframe class=\"desk-frame\" src=\"" + proxy + "\" " +
       "sandbox=\"\" referrerpolicy=\"no-referrer\" title=\"navegador del agente\"></iframe>";
   });
+
+  bbStatus();
 
   var termForm = document.getElementById("desk-term-form");
   if (termForm) termForm.addEventListener("submit", async function (e) {

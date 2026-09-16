@@ -253,6 +253,13 @@ TOOL_HINT = (
     '{"tool":"write","name":"nota.md","body":"contenido"} · '
     '{"tool":"read","name":"nota.md"} · '
     '{"tool":"fetch","url":"https://ejemplo.com"}\n'
+    "También tenés un NAVEGADOR REAL (Chrome en la nube) que el usuario ve en vivo:\n"
+    '```json\n{"tool":"browser","action":"start"}\n```\n'
+    'Después: {"tool":"browser","action":"navigate","url":"https://…"} · '
+    '{"tool":"browser","action":"click","selector":"#boton"} · '
+    '{"tool":"browser","action":"type","selector":"input[name=q]","text":"hola"} · '
+    '{"tool":"browser","action":"read"} · '
+    '{"tool":"browser","action":"stop"}\n'
     "Vas a recibir el resultado y podés seguir usándola o responder final. "
     "Después del bloque podés escribir una frase breve. Si no la necesitás, "
     "respondé normal sin bloque."
@@ -268,7 +275,7 @@ def extract_tool(text: str) -> dict | None:
             data = json.loads(m.group(1))
         except (json.JSONDecodeError, ValueError):
             continue
-        if isinstance(data, dict) and data.get("tool") in {"bash", "python", "write", "read", "fetch"}:
+        if isinstance(data, dict) and data.get("tool") in {"bash", "python", "write", "read", "fetch", "browser"}:
             return data
     return None
 
@@ -276,6 +283,42 @@ def extract_tool(text: str) -> dict | None:
 def strip_tools(text: str) -> str:
     """Quita los bloques JSON de herramienta del texto final que ve el usuario."""
     return (_TOOL_BLOCK.sub("", text or "")).strip()
+
+
+def _browser_tool(agent_id: str, tool: dict) -> str:
+    """Herramienta del chat: maneja el Chrome real en la nube."""
+    from app import browsers
+
+    act = str(tool.get("action") or "navigate").strip().lower()
+    try:
+        if act == "start":
+            st = browsers.start(agent_id)
+            return (
+                "navegador real ENCENDIDO en la nube (el usuario lo ve en vivo "
+                "en su escritorio). Usá navigate/click/type/read para manejarlo. "
+                f"Se apaga solo a los 15 min. Expira: {st.get('expiresAt')}"
+            )
+        if act == "stop":
+            browsers.stop(agent_id)
+            return "navegador apagado."
+        if act == "navigate":
+            r = browsers.action(agent_id, "navigate", url=str(tool.get("url") or ""))
+            return f"página abierta: {r.get('title') or '(sin título)'} — {r.get('url')}"
+        if act == "read":
+            r = browsers.action(agent_id, "read")
+            body = (r.get("text") or "").strip()
+            return "texto visible de " + str(r.get("url")) + ":\n" + body[:6000]
+        if act == "click":
+            r = browsers.action(agent_id, "click", selector=str(tool.get("selector") or ""))
+            return "click OK — ahora en: " + str(r.get("title") or r.get("url"))
+        if act == "type":
+            r = browsers.action(agent_id, "type",
+                                selector=str(tool.get("selector") or ""),
+                                text=str(tool.get("text") or ""))
+            return "texto escrito en " + str(r.get("url"))
+        return "acción de navegador desconocida (usá start|navigate|click|type|read|stop)"
+    except browsers.BrowserError as exc:
+        return f"error de navegador: {exc}"
 
 
 def execute_tool(agent_id: str, agent_name: str | None, tool: dict) -> str:
@@ -310,6 +353,8 @@ def execute_tool(agent_id: str, agent_name: str | None, tool: dict) -> str:
             if len(body) > 6_000:
                 body = body[:6_000] + "\n… (truncado)"
             return f"contenido de {tool.get('name')}:\n{body}"
+        if kind == "browser":
+            return _browser_tool(agent_id, tool)
         if kind == "fetch":
             r = fetch(str(tool.get("url") or ""))
             head = f"{r['title'] or '(sin título)'} — {r['url']}\n\n"

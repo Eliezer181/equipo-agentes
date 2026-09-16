@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app import base44_client, billing, computer, users_auth
+from app import base44_client, billing, browsers, computer, users_auth
 from app.llm import LAST_PROVIDER, _models, _using_gemini, reply, reply_messages_routed
 from contextvars import ContextVar
 from app.media import attach_media
@@ -98,6 +98,13 @@ class ComputerExecIn(BaseModel):
     cmd: str = Field(min_length=1, max_length=4000)
 
 
+class BrowserActionIn(BaseModel):
+    do: str = Field(default="navigate")  # start|stop|navigate|click|type|scroll|back|read
+    url: str = ""
+    selector: str = ""
+    text: str = ""
+
+
 class ComputerFetchIn(BaseModel):
     url: str = Field(min_length=4, max_length=500)
 
@@ -131,12 +138,12 @@ def speakers_for(group: dict, payload: ChatIn) -> list[dict]:
 
 @app.get("/health")
 def health():
-    return {"ok": True, "release": "v13"}
+    return {"ok": True, "release": "v14"}
 
 
 @app.get("/api/version")
 def version():
-    return {"release": "v13", "gemini": _using_gemini(), "models": _models(), "computer": True}
+    return {"release": "v14", "gemini": _using_gemini(), "models": _models(), "computer": True}
 
 
 @app.get("/")
@@ -559,6 +566,32 @@ def api_computer_fetch(specialist_id: str, payload: ComputerFetchIn):
     try:
         return computer.fetch(payload.url)
     except computer.ComputerError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/specialists/{specialist_id}/browser")
+def api_browser_status(specialist_id: str):
+    """Estado del Chrome real del especialista (y URL de vista en vivo)."""
+    _spec_or_404(specialist_id)
+    try:
+        return browsers.status(specialist_id)
+    except browsers.BrowserError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/specialists/{specialist_id}/browser")
+def api_browser(specialist_id: str, payload: BrowserActionIn):
+    """Enciende/apaga/maneja el Chrome real en la nube."""
+    _spec_or_404(specialist_id)
+    do = payload.do.strip().lower()
+    try:
+        if do == "start":
+            return browsers.start(specialist_id)
+        if do == "stop":
+            return browsers.stop(specialist_id)
+        return browsers.action(specialist_id, do, url=payload.url,
+                               selector=payload.selector, text=payload.text)
+    except browsers.BrowserError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
