@@ -19,7 +19,7 @@ API_KEY = (os.environ.get("BROWSERBASE_API_KEY") or "").strip()
 PROJECT_ID = (os.environ.get("BROWSERBASE_PROJECT_ID") or "").strip()
 _API = "https://api.browserbase.com/v1"
 SESSION_SECONDS = 900  # 15 min: control de costo por minuto
-MAX_FREE_BROWSERS = 3  # plan gratis: 3 navegadores simultáneos
+MAX_FREE_BROWSERS = 2  # plan gratis: 2 navegadores simultáneos (premium: 3)
 
 # {specialist_id: {"session": id, "viewer": url, "expires": iso}}
 _SESSIONS: dict[str, dict] = {}
@@ -108,7 +108,7 @@ def start(specialist_id: str, is_pro: bool = False) -> dict:
     if not is_pro and _prune_and_count() >= MAX_FREE_BROWSERS:
         raise PremiumRequired(
             f"Ya hay {MAX_FREE_BROWSERS} navegadores encendidos (límite del plan gratis). "
-            "Para encender un 4º navegador activá la suscripción premium "
+            "Para encender un 3er navegador activá la suscripción premium "
             "(US$30/mes) desde tu perfil."
         )
     # keepAlive: sin esto, cerrar la última conexión CDP termina la sesión
