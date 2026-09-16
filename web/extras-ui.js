@@ -6,8 +6,8 @@
     gear.id = "btn-settings";
     gear.title = "Ajustes";
     gear.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
-    var search = document.getElementById("btn-search");
-    actions.insertBefore(gear, search || actions.firstChild);
+    var searchBtn = document.getElementById("btn-search");
+    actions.insertBefore(gear, searchBtn || actions.firstChild);
   }
   if (!document.querySelector('link[href*="extras.css"]')) {
     var link = document.createElement("link");
@@ -36,6 +36,32 @@
     new MutationObserver(syncJump).observe(thread, { childList: true, subtree: true });
   }
 
+  async function searchMessages(q) {
+    try {
+      var res = await fetch("/api/search?q=" + encodeURIComponent(q));
+      if (res.ok) {
+        var data = await res.json();
+        return data.items || [];
+      }
+    } catch (e) {}
+    var specs = (typeof specialists !== "undefined" && specialists) || [];
+    var out = [];
+    var needle = q.toLowerCase();
+    for (var i = 0; i < specs.length && out.length < 30; i++) {
+      var spec = specs[i];
+      try {
+        var msgs = await (await fetch("/api/specialists/" + spec.id + "/messages")).json();
+        (msgs || []).forEach(function (m) {
+          var text = String((m && m.content) || "");
+          if (text.toLowerCase().indexOf(needle) >= 0 && text.indexOf("RESULTADO DE TU COMPUTADORA") !== 0) {
+            out.push({ id: spec.id, agent: spec.name, text: text.replace(/\n/g, " ").slice(0, 140) });
+          }
+        });
+      } catch (e2) {}
+    }
+    return out;
+  }
+
   var searchEl = document.getElementById("search");
   var listEl = document.getElementById("list");
   if (searchEl && listEl) {
@@ -51,8 +77,7 @@
       var q = searchEl.value.trim();
       if (q.length < 2) { hits.innerHTML = ""; return; }
       timer = setTimeout(async function () {
-        var data = await (await fetch("/api/search?q=" + encodeURIComponent(q))).json();
-        var items = data.items || [];
+        var items = await searchMessages(q);
         if (!items.length) {
           hits.innerHTML = '<p class="section-label">Mensajes</p><p class="preview" style="padding:8px 16px">No hay mensajes con esa frase.</p>';
           return;
