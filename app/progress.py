@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 from app.store import DATA
 
-_LIVE: dict[str, str] = {}
+_LIVE: dict[str, dict] = {}
 
 
 def _path(agent_id: str) -> Path:
@@ -46,11 +47,12 @@ def live_for_tool(tool: dict) -> str:
 
 def set_live(agent_id: str, text: str) -> None:
     aid = (agent_id or "").strip()
-    _LIVE[aid] = text or ""
+    payload = {"text": text or "", "at": time.time()}
+    _LIVE[aid] = payload
     p = _path(aid)
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps({"text": text or ""}, ensure_ascii=False), encoding="utf-8")
+        p.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     except Exception:
         pass
 
@@ -58,7 +60,7 @@ def set_live(agent_id: str, text: str) -> None:
 def get_live(agent_id: str) -> str:
     aid = (agent_id or "").strip()
     if aid in _LIVE:
-        return _LIVE[aid]
+        return (_LIVE[aid] or {}).get("text") or ""
     p = _path(aid)
     try:
         if p.exists():
@@ -76,10 +78,7 @@ def install() -> None:
 
     def wrapped(agent_id, agent_name=None, tool=None, is_pro=False, base_url="", **kw):
         set_live(agent_id, live_for_tool(tool or {}))
-        try:
-            return orig(agent_id, agent_name, tool, is_pro=is_pro, base_url=base_url, **kw)
-        finally:
-            pass
+        return orig(agent_id, agent_name, tool, is_pro=is_pro, base_url=base_url, **kw)
 
     wrapped._live_wrapped = True
     computer.execute_tool = wrapped
