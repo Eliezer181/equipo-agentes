@@ -12,7 +12,7 @@
   if (!document.querySelector('link[href*="extras.css"]')) {
     var link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = "/static/extras.css?v=1";
+    link.href = "/static/extras.css?v=2";
     document.head.appendChild(link);
   }
 
@@ -111,8 +111,11 @@
   if (gearBtn) gearBtn.addEventListener("click", function () { modal.classList.remove("hidden"); });
   document.getElementById("set-conn").onclick = function () {
     closeSet();
-    var c = document.getElementById("conn-modal");
-    if (c) c.classList.remove("hidden");
+    if (typeof window.openConnectors === "function") window.openConnectors();
+    else {
+      var c = document.getElementById("conn-modal");
+      if (c) c.classList.remove("hidden");
+    }
   };
   document.getElementById("set-help").onclick = function () {
     alert("Escribile al agente lo que necesitás. Para una página: pedile captura. GitHub y Gmail se conectan en Conectores. La flecha baja al último mensaje.");
