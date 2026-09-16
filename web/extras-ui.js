@@ -12,7 +12,7 @@
   if (!document.querySelector('link[href*="extras.css"]')) {
     var link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = "/static/extras.css?v=2";
+    link.href = "/static/extras.css?v=3";
     document.head.appendChild(link);
   }
 
@@ -98,13 +98,34 @@
   var modal = document.createElement("div");
   modal.id = "settings-modal";
   modal.className = "modal hidden";
-  modal.innerHTML = '<div class="sheet"><button type="button" id="set-x">\u00d7</button><h2>Ajustes</h2>' +
+  modal.innerHTML = '<div class="sheet"><button type="button" id="set-x">\u00d7</button><h2 id="set-title">Ajustes</h2>' +
+    '<div id="set-home">' +
     '<button type="button" class="set-row" id="set-conn"><div>Conectores<span>GitHub, Gmail y el resto</span></div></button>' +
     '<button type="button" class="set-row" id="set-help"><div>Ayuda<span>Cómo usar Glou y el navegador</span></div></button>' +
     '<button type="button" class="set-row" id="set-about"><div>Acerca de Glou<span>Agentes con computadora en la nube</span></div></button>' +
-    '<button type="button" class="set-row" id="set-out"><div>Cerrar sesión<span>Salir de esta cuenta</span></div></button></div>';
+    '<button type="button" class="set-row" id="set-out"><div>Cerrar sesión<span>Salir de esta cuenta</span></div></button></div>' +
+    '<div id="set-note" class="set-note" hidden></div></div>';
   (document.getElementById("app") || document.body).appendChild(modal);
-  function closeSet() { modal.classList.add("hidden"); }
+  var home = document.getElementById("set-home");
+  var note = document.getElementById("set-note");
+  var title = document.getElementById("set-title");
+  function closeSet() {
+    modal.classList.add("hidden");
+    home.hidden = false;
+    note.hidden = true;
+    title.textContent = "Ajustes";
+  }
+  function openNote(name, html) {
+    title.textContent = name;
+    home.hidden = true;
+    note.hidden = false;
+    note.innerHTML = html + '<button type="button" class="set-back" id="set-back">Volver</button>';
+    document.getElementById("set-back").onclick = function () {
+      home.hidden = false;
+      note.hidden = true;
+      title.textContent = "Ajustes";
+    };
+  }
   document.getElementById("set-x").onclick = closeSet;
   modal.addEventListener("click", function (e) { if (e.target === modal) closeSet(); });
   var gearBtn = document.getElementById("btn-settings");
@@ -112,16 +133,12 @@
   document.getElementById("set-conn").onclick = function () {
     closeSet();
     if (typeof window.openConnectors === "function") window.openConnectors();
-    else {
-      var c = document.getElementById("conn-modal");
-      if (c) c.classList.remove("hidden");
-    }
   };
   document.getElementById("set-help").onclick = function () {
-    alert("Escribile al agente lo que necesitás. Para una página: pedile captura. GitHub y Gmail se conectan en Conectores. La flecha baja al último mensaje.");
+    openNote("Ayuda", "<p>Escribile al agente lo que necesitás, en castellano.</p><p>Si querés una página, pedile captura. La flecha del chat baja al último mensaje.</p><p>GitHub y Gmail se conectan desde Conectores, con el logo.</p>");
   };
   document.getElementById("set-about").onclick = function () {
-    alert("Glou · Equipo de agentes. Cada agente tiene chat, archivos y un Chrome en la nube.");
+    openNote("Acerca de Glou", "<p>Glou es un equipo de agentes. Cada uno tiene chat, archivos y un Chrome en la nube.</p><p>No es un chatbot suelto: el agente puede entrar a una web, tomar captura y volver con el resultado.</p>");
   };
   document.getElementById("set-out").onclick = async function () {
     await fetch("/api/auth/logout", { method: "POST" });
