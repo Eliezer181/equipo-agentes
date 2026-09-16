@@ -78,35 +78,63 @@
   border:1px solid #b8860b;color:#e8d9a0;font-size:13px}
 .desk-premium b{display:block;margin-bottom:6px}
 
-/* ---- Cursor táctil + pantalla completa para Chrome real ---- */
+
+
+/* ---- Pantalla completa para Chrome real (declutter) ---- */
 #desk.desk-fullscreen .chat-top{display:none}
 #desk.desk-fullscreen .desk-dock{display:none}
 #desk.desk-fullscreen .desk-stage{padding:0}
 #desk.desk-fullscreen .desk-window{border-radius:0;border:0}
 #desk.desk-fullscreen .desk-url-row{padding:4px 6px}
 
-.desk-frame-wrap{position:relative;flex:1;min-height:0;width:100%;overflow:hidden}
-.desk-frame-wrap .desk-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;pointer-events:none}
-.desk-touch-overlay{position:absolute;inset:0;z-index:2;touch-action:none;background:transparent}
-.desk-cursor{
-  position:absolute;top:0;left:0;width:26px;height:26px;border-radius:50%;
-  background:rgba(245,158,11,.28);border:2px solid #f59e0b;
-  transform:translate(-50%,-50%);pointer-events:none;opacity:0;z-index:3;
-  transition:opacity .25s,transform .08s,background .15s;
+.desk-browser.browsing{position:relative;overflow:hidden;padding:0;display:flex;flex-direction:column}
+.desk-frame-wrap{
+  position:relative;flex:1;min-height:0;width:100%;overflow:hidden;
+  transition:transform .18s ease;
 }
-.desk-cursor.pressed{background:rgba(245,158,11,.5);transform:translate(-50%,-50%) scale(1.15)}
-.desk-cursor.tap{background:rgba(34,197,94,.55);border-color:#22c55e;transform:translate(-50%,-50%) scale(1.4)}
+.desk-frame-wrap .desk-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;pointer-events:none}
+
+/* Overlay táctil: cubre TODO el panel (no solo la pantalla visible), así el
+   dedo puede arrastrar lejos de lo que se está apuntando. */
+.desk-touch-overlay{position:absolute;inset:0;z-index:2;touch-action:none;background:transparent}
+
+/* Cursor flecha: se mueve en relativo (trackpad), nunca pegado al dedo */
+.desk-cursor{
+  position:absolute;top:0;left:0;transform:translate(-2px,-2px);
+  pointer-events:none;opacity:0;z-index:3;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6));
+  transition:opacity .25s;
+}
+.desk-cursor svg{display:block}
+.desk-cursor.pressed svg path{fill:#fde68a}
+.desk-cursor.tap svg path{fill:#86efac}
 
 .desk-fs-exit{
   position:absolute;top:8px;right:8px;z-index:6;width:32px;height:32px;border-radius:50%;
   background:rgba(0,0,0,.6);color:#fff;border:0;font-size:15px;line-height:32px;
 }
-.desk-touch-bar{
-  display:flex;gap:6px;padding:8px;overflow-x:auto;background:#0c0c10;
-  border-top:1px solid #1c1c1e;flex-shrink:0;
+
+/* Los 2 iconos fijos: portapapeles (izq) y teclado (der), abajo de todo */
+.desk-corner-btn{
+  position:absolute;bottom:14px;z-index:8;width:44px;height:44px;border-radius:50%;
+  background:rgba(20,20,24,.85);border:1px solid rgba(255,255,255,.12);color:#e4e4e7;
+  display:flex;align-items:center;justify-content:center;
 }
-.desk-touch-bar button{
-  flex-shrink:0;border:1px solid #2a2a30;background:#18181d;color:#e4e4e7;
-  border-radius:8px;padding:8px 12px;font-size:13px;white-space:nowrap;
+.desk-corner-btn.on{background:rgba(245,158,11,.85);color:#111;border-color:transparent}
+.desk-corner-clip{left:14px}
+.desk-corner-kb{right:14px}
+
+.desk-hidden-input{
+  position:absolute;opacity:0;width:1px;height:1px;left:-9999px;top:0;border:0;padding:0;
 }
-.desk-touch-bar button:active{background:#26262c}
+
+.desk-clip-menu{
+  position:absolute;bottom:64px;left:14px;z-index:9;background:#18181d;
+  border:1px solid rgba(255,255,255,.12);border-radius:12px;overflow:hidden;
+  box-shadow:0 6px 20px rgba(0,0,0,.5);
+}
+.desk-clip-menu button{
+  display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;
+  background:transparent;border:0;color:#e4e4e7;font-size:13px;text-align:left;white-space:nowrap;
+}
+.desk-clip-menu button:active{background:#26262c}
+.desk-clip-menu button + button{border-top:1px solid rgba(255,255,255,.08)}

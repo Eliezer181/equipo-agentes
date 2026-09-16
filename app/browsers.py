@@ -157,7 +157,7 @@ def _valid_url(url: str) -> str:
     url = (url or "").strip()
     if not url:
         raise BrowserError("falta la URL")
-    if not re.match(r"^https?://", url, re.IGNORECASE):
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", url):  # ya tiene esquema (https:, data:, about:, ...)
         url = "https://" + url.lstrip("/")
     return url
 
@@ -207,7 +207,9 @@ def action(specialist_id: str, do: str, url: str = "",
             elif do == "click_xy":
                 if x is None or y is None:
                     raise BrowserError("faltan las coordenadas x,y")
-                vp = page.viewport_size or {"width": 1280, "height": 800}  # propiedad, no método
+                # page.viewport_size es poco confiable en sesiones conectadas por CDP
+                # (Browserbase): siempre viene None. Usamos el tamaño real de la ventana.
+                vp = page.evaluate("() => ({width: window.innerWidth, height: window.innerHeight})")
                 page.mouse.click(
                     max(0.0, min(1.0, x)) * vp["width"],
                     max(0.0, min(1.0, y)) * vp["height"],
@@ -223,6 +225,14 @@ def action(specialist_id: str, do: str, url: str = "",
             elif do == "read":
                 body = page.locator("body").inner_text(timeout=15000)
                 out.update(text=body[:4000])
+            elif do == "read_selection":
+                # Texto seleccionado o valor del campo enfocado (para "Copiar al teléfono")
+                val = page.evaluate(
+                    "() => { const s = window.getSelection && window.getSelection().toString(); "
+                    "if (s) return s; const el = document.activeElement; "
+                    "if (el && el.value !== undefined) return el.value; return ''; }"
+                )
+                out.update(text=(val or "")[:4000])
             else:
                 raise BrowserError(f"acción desconocida: {do}")
             try:

@@ -204,22 +204,19 @@
       browserEl.innerHTML =
         "<div class=\"desk-real-badge\">\u25cf Chrome en vivo (se apaga solo a los 15 min)</div>" +
         "<button type=\"button\" class=\"desk-fs-exit\" title=\"Achicar\">\u2715</button>" +
+        "<div class=\"desk-touch-overlay\"></div>" +
         "<div class=\"desk-frame-wrap\">" +
         "<iframe class=\"desk-frame\" src=\"" + viewer + "\" " +
         "allow=\"clipboard-read; clipboard-write\" title=\"Chrome del agente\"></iframe>" +
-        "<div class=\"desk-touch-overlay\"></div>" +
-        "<div class=\"desk-cursor\"></div>" +
+        "<div class=\"desk-cursor\"><svg viewBox='0 0 24 24' width='22' height='22'><path d='M4 2 L20 12.5 L12.3 13.8 L9 21 Z' fill='#f5f5f7' stroke='#0a0a0a' stroke-width='1.3' stroke-linejoin='round'/></svg></div>" +
         "</div>" +
-        "<div class=\"desk-touch-bar\">" +
-        "<button type=\"button\" data-tk=\"up\">\u2191</button>" +
-        "<button type=\"button\" data-tk=\"down\">\u2193</button>" +
-        "<button type=\"button\" data-tk=\"kb\">\u2328 Escribir</button>" +
-        "<button type=\"button\" data-tk=\"enter\">\u23ce</button>" +
-        "<button type=\"button\" data-tk=\"back\">\u2190 Atr\u00e1s</button>" +
-        "</div>";
+        "<button type=\"button\" class=\"desk-corner-btn desk-corner-clip\" title=\"Portapapeles\"><svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='6' y='4' width='12' height='17' rx='2'/><path d='M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1'/><path d='M9 10h6M9 14h6M9 18h3'/></svg></button>" +
+        "<button type=\"button\" class=\"desk-corner-btn desk-corner-kb\" title=\"Teclado\"><svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='6' width='20' height='12' rx='2'/><path d='M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12'/></svg></button>" +
+        "<input class=\"desk-hidden-input\" autocomplete=\"off\" autocapitalize=\"off\" spellcheck=\"false\" />";
       desk.classList.add("desk-fullscreen");
       attachTouchCursor();
-      attachTouchBar();
+      attachKeyboard();
+      attachClipboard();
       var exitBtn = browserEl.querySelector(".desk-fs-exit");
       if (exitBtn) exitBtn.addEventListener("click", function () {
         desk.classList.remove("desk-fullscreen");
@@ -229,99 +226,196 @@
     }
   }
 
-  // ---------- Cursor táctil: sigue el dedo y hace click donde tocás ----------
+  // ---------- Cursor tipo flecha: se mueve como un trackpad (relativo al
+  // arrastre, no pegado al dedo) para que el dedo nunca tape lo que apuntás.
   function attachTouchCursor() {
     var wrap = browserEl.querySelector(".desk-frame-wrap");
     var overlay = browserEl.querySelector(".desk-touch-overlay");
     var cursor = browserEl.querySelector(".desk-cursor");
     if (!wrap || !overlay || !cursor) return;
-    var dragging = false, startX = 0, startY = 0, moved = false;
+    var virt = { fx: 0.5, fy: 0.5 };
+    var dragging = false, lastX = 0, lastY = 0, movedDist = 0, twoFinger = false, scrollAcc = 0;
 
-    function place(clientX, clientY) {
+    function render() {
       var r = wrap.getBoundingClientRect();
-      var lx = Math.min(r.width, Math.max(0, clientX - r.left));
-      var ly = Math.min(r.height, Math.max(0, clientY - r.top));
-      cursor.style.left = lx + "px";
-      cursor.style.top = ly + "px";
+      cursor.style.left = (virt.fx * r.width) + "px";
+      cursor.style.top = (virt.fy * r.height) + "px";
       cursor.style.opacity = "1";
-      return [lx / r.width, ly / r.height];
     }
     function onDown(cx, cy) {
-      dragging = true; moved = false; startX = cx; startY = cy;
-      place(cx, cy);
+      dragging = true; lastX = cx; lastY = cy; movedDist = 0;
       cursor.classList.add("pressed");
+      render();
     }
     function onMove(cx, cy) {
       if (!dragging) return;
-      if (Math.abs(cx - startX) > 6 || Math.abs(cy - startY) > 6) moved = true;
-      place(cx, cy);
+      var r = wrap.getBoundingClientRect();
+      var dx = cx - lastX, dy = cy - lastY;
+      lastX = cx; lastY = cy;
+      movedDist += Math.abs(dx) + Math.abs(dy);
+      virt.fx = Math.min(1, Math.max(0, virt.fx + dx / r.width));
+      virt.fy = Math.min(1, Math.max(0, virt.fy + dy / r.height));
+      render();
     }
-    async function onUp(cx, cy) {
+    async function onUp() {
       cursor.classList.remove("pressed");
       if (!dragging) return;
       dragging = false;
-      var frac = place(cx, cy);
-      if (moved) {
-        setTimeout(function () { cursor.style.opacity = "0"; }, 500);
-        return;
-      }
+      if (twoFinger) { twoFinger = false; scrollAcc = 0; return; }
+      if (movedDist > 10) return; // fue un arrastre para reposicionar, no un tap
       cursor.classList.add("tap");
       setTimeout(function () { cursor.classList.remove("tap"); }, 220);
       try {
         await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ do: "click_xy", x: frac[0], y: frac[1] })
+          body: JSON.stringify({ do: "click_xy", x: virt.fx, y: virt.fy })
         });
       } catch (err) { /* toque perdido, no interrumpe */ }
-      setTimeout(function () { cursor.style.opacity = "0"; }, 900);
     }
+    async function onTwoFingerMove(dy) {
+      scrollAcc += dy;
+      if (Math.abs(scrollAcc) < 45) return;
+      var dir = scrollAcc > 0 ? "down" : "up";
+      scrollAcc = 0;
+      try {
+        await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ do: "scroll", text: dir })
+        });
+      } catch (err) { /* silencioso */ }
+    }
+    var lastTwoY = 0;
     overlay.addEventListener("touchstart", function (e) {
+      if (e.touches.length >= 2) {
+        twoFinger = true; dragging = true;
+        lastTwoY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        return;
+      }
       var t = e.touches[0]; onDown(t.clientX, t.clientY);
     }, { passive: true });
     overlay.addEventListener("touchmove", function (e) {
-      var t = e.touches[0]; onMove(t.clientX, t.clientY);
+      if (twoFinger && e.touches.length >= 2) {
+        var y = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        onTwoFingerMove(y - lastTwoY);
+        lastTwoY = y;
+        return;
+      }
+      var t = e.touches[0]; if (t) onMove(t.clientX, t.clientY);
     }, { passive: true });
-    overlay.addEventListener("touchend", function (e) {
-      var t = e.changedTouches[0]; onUp(t.clientX, t.clientY);
-    });
+    overlay.addEventListener("touchend", function (e) { if (e.touches.length === 0) onUp(); });
     overlay.addEventListener("mousedown", function (e) { onDown(e.clientX, e.clientY); });
-    overlay.addEventListener("mousemove", function (e) { if (dragging) onMove(e.clientX, e.clientY); });
-    window.addEventListener("mouseup", function (e) { if (dragging) onUp(e.clientX, e.clientY); });
+    overlay.addEventListener("mousemove", function (e) { if (dragging && !twoFinger) onMove(e.clientX, e.clientY); });
+    window.addEventListener("mouseup", function () { onUp(); });
+    render();
   }
 
-  // ---------- Barra flotante: scroll, teclado, enter, atrás ----------
-  function attachTouchBar() {
-    var bar = browserEl.querySelector(".desk-touch-bar");
-    if (!bar) return;
-    bar.addEventListener("click", async function (e) {
-      var btn = e.target.closest("button[data-tk]");
-      if (!btn) return;
-      var tk = btn.getAttribute("data-tk");
+  // ---------- Teclado nativo real: un input invisible enfocable trae el
+  // teclado del celular y cada tecla se reenvía al campo del navegador real.
+  function attachKeyboard() {
+    var kbBtn = browserEl.querySelector(".desk-corner-kb");
+    var frameWrap = browserEl.querySelector(".desk-frame-wrap");
+    var hidden = browserEl.querySelector(".desk-hidden-input");
+    if (!kbBtn || !hidden) return;
+    var lastSent = "", flushTimer = null;
+
+    async function sendAction(body) {
       try {
-        if (tk === "up") await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ do: "scroll", text: "up" })
+        return await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
         });
-        else if (tk === "down") await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ do: "scroll", text: "down" })
+      } catch (err) { return null; }
+    }
+    async function flush() {
+      var cur = hidden.value;
+      if (cur === lastSent) return;
+      if (cur.indexOf(lastSent) === 0) {
+        var added = cur.slice(lastSent.length);
+        if (added) await sendAction({ do: "type_focused", text: added });
+      } else if (lastSent.indexOf(cur) === 0) {
+        var delCount = lastSent.length - cur.length;
+        for (var i = 0; i < delCount; i++) await sendAction({ do: "key", text: "Backspace" });
+      } else {
+        for (var j = 0; j < lastSent.length; j++) await sendAction({ do: "key", text: "Backspace" });
+        if (cur) await sendAction({ do: "type_focused", text: cur });
+      }
+      lastSent = cur;
+    }
+    hidden.addEventListener("input", function () {
+      clearTimeout(flushTimer);
+      flushTimer = setTimeout(flush, 180);
+    });
+    hidden.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        clearTimeout(flushTimer);
+        flush().then(function () { sendAction({ do: "key", text: "Enter" }); });
+        hidden.value = ""; lastSent = "";
+      }
+    });
+    hidden.addEventListener("focus", function () {
+      kbBtn.classList.add("on");
+    });
+    hidden.addEventListener("blur", function () {
+      kbBtn.classList.remove("on");
+      clearTimeout(flushTimer);
+      flush();
+      hidden.value = ""; lastSent = "";
+    });
+    kbBtn.addEventListener("click", function () {
+      if (document.activeElement === hidden) hidden.blur();
+      else hidden.focus();
+    });
+    // La pantalla del PC se corre hacia arriba cuando aparece el teclado real
+    // (visualViewport encoge cuando el teclado del celular se despliega).
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", function () {
+        var kbHeight = window.innerHeight - window.visualViewport.height;
+        frameWrap.style.transform = kbHeight > 60 ? ("translateY(-" + Math.round(kbHeight * 0.45) + "px)") : "";
+      });
+    }
+  }
+
+  // ---------- Portapapeles: pegar desde el teléfono / copiar al teléfono ----------
+  function attachClipboard() {
+    var clipBtn = browserEl.querySelector(".desk-corner-clip");
+    if (!clipBtn) return;
+    clipBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var existing = browserEl.querySelector(".desk-clip-menu");
+      if (existing) { existing.remove(); return; }
+      var menu = document.createElement("div");
+      menu.className = "desk-clip-menu";
+      menu.innerHTML =
+        "<button type=\"button\" data-clip=\"paste\"><svg viewBox='0 0 24 24' width='18' height='18' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='6' y='4' width='12' height='17' rx='2'/><path d='M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1'/></svg><span>Pegar desde el tel\u00e9fono</span></button>" +
+        "<button type=\"button\" data-clip=\"copy\"><svg viewBox='0 0 24 24' width='18' height='18' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='9' y='9' width='11' height='11' rx='2'/><path d='M5 15V5a2 2 0 0 1 2-2h10'/></svg><span>Copiar al tel\u00e9fono</span></button>";
+      browserEl.appendChild(menu);
+      menu.addEventListener("click", async function (ev) {
+        var b = ev.target.closest("button[data-clip]");
+        if (!b) return;
+        var kind = b.getAttribute("data-clip");
+        menu.remove();
+        try {
+          if (kind === "paste") {
+            var txt = await navigator.clipboard.readText();
+            if (txt) await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ do: "type_focused", text: txt })
+            });
+          } else {
+            var r = await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ do: "read_selection" })
+            });
+            if (r.text) { await navigator.clipboard.writeText(r.text); toast("Copiado al tel\u00e9fono"); }
+            else toast("No hay texto seleccionado");
+          }
+        } catch (err) { toast(err.message || "no se pudo"); }
+      });
+      setTimeout(function () {
+        document.addEventListener("click", function onDoc(ev2) {
+          if (!menu.contains(ev2.target) && ev2.target !== clipBtn) { menu.remove(); document.removeEventListener("click", onDoc); }
         });
-        else if (tk === "enter") await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ do: "key", text: "Enter" })
-        });
-        else if (tk === "back") await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ do: "back" })
-        });
-        else if (tk === "kb") {
-          var txt = window.prompt("Toc\u00e1 primero el campo en la pantalla, despu\u00e9s escrib\u00ed aqu\u00ed:");
-          if (txt) await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ do: "type_focused", text: txt })
-          });
-        }
-      } catch (err) { toast(err.message || "no se pudo"); }
+      }, 0);
     });
   }
 
@@ -366,6 +460,17 @@
         browserEl.innerHTML = "<p class=\"desk-empty\">No se pudo encender: " + escapeHtml(err.message) + "</p>";
       }
     }
+  });
+
+  var backBtn2 = document.getElementById("desk-back-btn");
+  if (backBtn2) backBtn2.addEventListener("click", async function () {
+    if (!bb.on) { toast("Encend\u00e9 el Chrome real primero"); return; }
+    try {
+      var r = await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ do: "back" })
+      });
+      pushTerm(["$ chrome back → " + (r.title || r.url)]);
+    } catch (err) { toast(err.message || "no se pudo volver"); }
   });
 
   // Como un navegador de verdad: si no parece una URL/dominio, lo busca en Google
