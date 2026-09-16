@@ -14,15 +14,36 @@
     .chat-who{flex:1;min-width:0}
     #btn-agent-menu,#btn-desk{margin-left:4px;flex-shrink:0;width:36px;height:36px;border:0;border-radius:50%;background:#1c1c1e;color:#f4f4f5}
     #btn-desk{font-size:15px}
-    .heavy-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 12px;background:#0a0a0c;border-top:1px solid #1c1c1e;font-size:12px;color:#a1a1aa}
-    .heavy-bar.on{color:#fbbf24;background:#14110a}
-    .heavy-bar label{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
-    .heavy-hint{color:#71717a;font-size:11px}
     .bubble img{display:block;width:100%;max-width:100%;max-height:200px;height:auto;object-fit:cover;object-position:top center;border-radius:10px;margin:6px 0 2px}
-    .think-bar{display:flex;align-items:center;gap:8px;padding:6px 14px 4px;font-size:12px;color:#8e8e93;background:#0b0b0d}
+    .think-bar{display:flex;align-items:center;gap:8px;padding:7px 16px 2px;font-size:12px;color:#8e8e93;background:transparent}
     .think-bar.hidden{display:none!important}
     .think-dot{width:6px;height:6px;border-radius:50%;background:#a1a1aa;animation:think-pulse 1s ease-in-out infinite}
     @keyframes think-pulse{50%{opacity:.25}}
+    .composer{
+      background:transparent!important;
+      border-top:0!important;
+      padding:8px 10px calc(12px + env(safe-area-inset-bottom))!important;
+      gap:8px!important;
+    }
+    .composer input{
+      background:rgba(255,255,255,.08)!important;
+      border:1px solid rgba(255,255,255,.16)!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.12), 0 8px 24px rgba(0,0,0,.25)!important;
+      backdrop-filter:blur(22px) saturate(180%)!important;
+      -webkit-backdrop-filter:blur(22px) saturate(180%)!important;
+      color:#f5f5f7!important;
+    }
+    .composer input::placeholder{color:rgba(235,235,245,.45)}
+    #btn-at{
+      width:36px;height:36px;border:0;border-radius:50%;
+      background:rgba(255,255,255,.08);color:#f4f4f5;font-weight:700;
+      backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+    }
+    #btn-at.hidden{display:none!important}
+    .composer button[type=submit]{
+      box-shadow:0 6px 18px rgba(245,158,11,.28), inset 0 1px 0 rgba(255,255,255,.35)!important;
+    }
   </style>
 </head>
 <body>
@@ -56,12 +77,8 @@
         <button type="button" id="btn-agent-menu" title="Opciones">⋮</button>
       </header>
       <div id="thread" class="thread"></div>
-      <div id="heavy-bar" class="heavy-bar on">
-        <label><input type="checkbox" id="heavy-toggle" checked /> <span id="heavy-label">Base44</span></label>
-        <span id="heavy-hint" class="heavy-hint">Respuestas más profundas · usa créditos</span>
-      </div>
       <form id="composer" class="composer">
-        <button type="button" id="btn-at" title="Mencionar">@</button>
+        <button type="button" id="btn-at" class="hidden" title="Mencionar">@</button>
         <input id="input" autocomplete="off" placeholder="Mensaje" enterkeyhint="send" />
         <button type="submit">Enviar</button>
       </form>
@@ -157,6 +174,8 @@
         <label>Color<input type="hidden" id="edit-color" /><div id="edit-palette" class="palette"></div></label>
         <label>Cómo trabaja<textarea id="edit-instructions" rows="4"></textarea></label>
         <label class="switch">Avisarme cuando responde<input type="checkbox" id="notify-toggle" /></label>
+        <label class="switch">Usar modelo profundo (Base44)<input type="checkbox" id="heavy-toggle" checked /></label>
+        <p class="hint-inline" id="heavy-hint">Respuestas más profundas · usa créditos</p>
         <div class="stack-actions">
           <button type="submit">Guardar cambios</button>
           <button type="button" id="btn-clear-chat" class="ghost">Vaciar chat</button>
@@ -172,7 +191,7 @@
   <script src="/static/color-ui.js?v=24"></script>
   <script src="/static/group-ui.js?v=24"></script>
   <script src="/static/computer-ui.js?v=33"></script>
-  <script src="/static/status-ui.js?v=1"></script>
+  <script src="/static/status-ui.js?v=2"></script>
   <script>
     document.addEventListener("click", function (e) {
       var img = e.target.closest(".bubble img");
