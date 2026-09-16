@@ -4,21 +4,36 @@
   --ga:210deg;
   --agent:#3b82f6;
 }
-#app,#chat.screen,#chat .thread{
-  overflow-x:hidden;
-}
-#chat.screen{position:relative}
-#chat .thread{
-  padding-top:calc(70px + env(safe-area-inset-top));
-  padding-bottom:calc(118px + env(safe-area-inset-bottom));
-  touch-action:pan-y;
-}
-#chat .bubble{
-  max-width:82%;
+#chat.screen{
+  position:relative;
   overflow:hidden;
 }
+#chat .thread{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+  padding-top:calc(70px + env(safe-area-inset-top));
+  padding-bottom:calc(118px + env(safe-area-inset-bottom));
+}
+#chat .bubble{
+  flex:0 0 auto;
+  max-width:82%;
+  overflow:visible;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
 #chat .bubble img{
+  display:block;
+  width:100%;
   max-width:100%;
+  max-height:200px;
+  height:auto;
+  object-fit:contain;
+  object-position:top center;
 }
 #chat .think-bar{
   position:absolute;
