@@ -199,11 +199,130 @@
     }
     if (bb.on && bb.viewerUrl) {
       browserEl.classList.add("browsing");
+      // navbar=false: la barra de Browserbase queda oculta, usamos la nuestra.
+      var viewer = bb.viewerUrl + (bb.viewerUrl.indexOf("?") === -1 ? "?" : "&") + "navbar=false";
       browserEl.innerHTML =
         "<div class=\"desk-real-badge\">\u25cf Chrome en vivo (se apaga solo a los 15 min)</div>" +
-        "<iframe class=\"desk-frame\" src=\"" + bb.viewerUrl + "\" " +
-        "allow=\"clipboard-read; clipboard-write\" title=\"Chrome del agente\"></iframe>";
+        "<button type=\"button\" class=\"desk-fs-exit\" title=\"Achicar\">\u2715</button>" +
+        "<div class=\"desk-frame-wrap\">" +
+        "<iframe class=\"desk-frame\" src=\"" + viewer + "\" " +
+        "allow=\"clipboard-read; clipboard-write\" title=\"Chrome del agente\"></iframe>" +
+        "<div class=\"desk-touch-overlay\"></div>" +
+        "<div class=\"desk-cursor\"></div>" +
+        "</div>" +
+        "<div class=\"desk-touch-bar\">" +
+        "<button type=\"button\" data-tk=\"up\">\u2191</button>" +
+        "<button type=\"button\" data-tk=\"down\">\u2193</button>" +
+        "<button type=\"button\" data-tk=\"kb\">\u2328 Escribir</button>" +
+        "<button type=\"button\" data-tk=\"enter\">\u23ce</button>" +
+        "<button type=\"button\" data-tk=\"back\">\u2190 Atr\u00e1s</button>" +
+        "</div>";
+      desk.classList.add("desk-fullscreen");
+      attachTouchCursor();
+      attachTouchBar();
+      var exitBtn = browserEl.querySelector(".desk-fs-exit");
+      if (exitBtn) exitBtn.addEventListener("click", function () {
+        desk.classList.remove("desk-fullscreen");
+      });
+    } else {
+      desk.classList.remove("desk-fullscreen");
     }
+  }
+
+  // ---------- Cursor táctil: sigue el dedo y hace click donde tocás ----------
+  function attachTouchCursor() {
+    var wrap = browserEl.querySelector(".desk-frame-wrap");
+    var overlay = browserEl.querySelector(".desk-touch-overlay");
+    var cursor = browserEl.querySelector(".desk-cursor");
+    if (!wrap || !overlay || !cursor) return;
+    var dragging = false, startX = 0, startY = 0, moved = false;
+
+    function place(clientX, clientY) {
+      var r = wrap.getBoundingClientRect();
+      var lx = Math.min(r.width, Math.max(0, clientX - r.left));
+      var ly = Math.min(r.height, Math.max(0, clientY - r.top));
+      cursor.style.left = lx + "px";
+      cursor.style.top = ly + "px";
+      cursor.style.opacity = "1";
+      return [lx / r.width, ly / r.height];
+    }
+    function onDown(cx, cy) {
+      dragging = true; moved = false; startX = cx; startY = cy;
+      place(cx, cy);
+      cursor.classList.add("pressed");
+    }
+    function onMove(cx, cy) {
+      if (!dragging) return;
+      if (Math.abs(cx - startX) > 6 || Math.abs(cy - startY) > 6) moved = true;
+      place(cx, cy);
+    }
+    async function onUp(cx, cy) {
+      cursor.classList.remove("pressed");
+      if (!dragging) return;
+      dragging = false;
+      var frac = place(cx, cy);
+      if (moved) {
+        setTimeout(function () { cursor.style.opacity = "0"; }, 500);
+        return;
+      }
+      cursor.classList.add("tap");
+      setTimeout(function () { cursor.classList.remove("tap"); }, 220);
+      try {
+        await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ do: "click_xy", x: frac[0], y: frac[1] })
+        });
+      } catch (err) { /* toque perdido, no interrumpe */ }
+      setTimeout(function () { cursor.style.opacity = "0"; }, 900);
+    }
+    overlay.addEventListener("touchstart", function (e) {
+      var t = e.touches[0]; onDown(t.clientX, t.clientY);
+    }, { passive: true });
+    overlay.addEventListener("touchmove", function (e) {
+      var t = e.touches[0]; onMove(t.clientX, t.clientY);
+    }, { passive: true });
+    overlay.addEventListener("touchend", function (e) {
+      var t = e.changedTouches[0]; onUp(t.clientX, t.clientY);
+    });
+    overlay.addEventListener("mousedown", function (e) { onDown(e.clientX, e.clientY); });
+    overlay.addEventListener("mousemove", function (e) { if (dragging) onMove(e.clientX, e.clientY); });
+    window.addEventListener("mouseup", function (e) { if (dragging) onUp(e.clientX, e.clientY); });
+  }
+
+  // ---------- Barra flotante: scroll, teclado, enter, atrás ----------
+  function attachTouchBar() {
+    var bar = browserEl.querySelector(".desk-touch-bar");
+    if (!bar) return;
+    bar.addEventListener("click", async function (e) {
+      var btn = e.target.closest("button[data-tk]");
+      if (!btn) return;
+      var tk = btn.getAttribute("data-tk");
+      try {
+        if (tk === "up") await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ do: "scroll", text: "up" })
+        });
+        else if (tk === "down") await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ do: "scroll", text: "down" })
+        });
+        else if (tk === "enter") await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ do: "key", text: "Enter" })
+        });
+        else if (tk === "back") await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ do: "back" })
+        });
+        else if (tk === "kb") {
+          var txt = window.prompt("Toc\u00e1 primero el campo en la pantalla, despu\u00e9s escrib\u00ed aqu\u00ed:");
+          if (txt) await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ do: "type_focused", text: txt })
+          });
+        }
+      } catch (err) { toast(err.message || "no se pudo"); }
+    });
   }
 
   async function bbStatus() {

@@ -99,10 +99,12 @@ class ComputerExecIn(BaseModel):
 
 
 class BrowserActionIn(BaseModel):
-    do: str = Field(default="navigate")  # start|stop|navigate|click|type|scroll|back|read
+    do: str = Field(default="navigate")  # start|stop|navigate|click|type|scroll|back|read|click_xy|type_focused|key
     url: str = ""
     selector: str = ""
     text: str = ""
+    x: float | None = None
+    y: float | None = None
 
 
 class ComputerFetchIn(BaseModel):
@@ -592,7 +594,8 @@ def api_browser(specialist_id: str, payload: BrowserActionIn, request: Request):
         if do == "stop":
             return browsers.stop(specialist_id)
         return browsers.action(specialist_id, do, url=payload.url,
-                               selector=payload.selector, text=payload.text)
+                               selector=payload.selector, text=payload.text,
+                               x=payload.x, y=payload.y)
     except browsers.PremiumRequired as exc:
         raise HTTPException(status_code=402, detail=str(exc)) from exc
     except browsers.BrowserError as exc:

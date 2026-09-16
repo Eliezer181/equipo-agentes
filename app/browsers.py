@@ -170,10 +170,14 @@ def _safe_title(page) -> str:
 
 
 def action(specialist_id: str, do: str, url: str = "",
-            selector: str = "", text: str = "") -> dict:
+            selector: str = "", text: str = "",
+            x: float | None = None, y: float | None = None) -> dict:
     """Ejecuta una acción en el Chrome real del especialista.
 
-    do: navigate | click | type | scroll | back | read
+    do: navigate | click | type | scroll | back | read |
+        click_xy | type_focused | key
+    x/y (click_xy) son fracciones 0..1 del viewport (cursor táctil:
+    el frontend nunca necesita saber el tamaño real de la página).
     Cada acción abre y cierra su conexión CDP (sin estado entre hilos).
     """
     connect = _connect_url(specialist_id)
@@ -200,6 +204,22 @@ def action(specialist_id: str, do: str, url: str = "",
                 page.mouse.wheel(0, -600 if (text or "").lower() == "up" else 600)
             elif do == "back":
                 page.go_back(timeout=15000)
+            elif do == "click_xy":
+                if x is None or y is None:
+                    raise BrowserError("faltan las coordenadas x,y")
+                vp = page.viewport_size or {"width": 1280, "height": 800}  # propiedad, no método
+                page.mouse.click(
+                    max(0.0, min(1.0, x)) * vp["width"],
+                    max(0.0, min(1.0, y)) * vp["height"],
+                )
+            elif do == "type_focused":
+                if not text:
+                    raise BrowserError("falta el texto")
+                page.keyboard.type(text, delay=12)
+            elif do == "key":
+                if not text:
+                    raise BrowserError("falta la tecla")
+                page.keyboard.press(text)
             elif do == "read":
                 body = page.locator("body").inner_text(timeout=15000)
                 out.update(text=body[:4000])

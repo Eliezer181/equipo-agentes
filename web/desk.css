@@ -64,7 +64,7 @@
 .desk-page p{white-space:pre-wrap;word-break:break-word;color:#d4d4d8}
 
 /* Navegador real: iframe a pantalla completa */
-.desk-browser.browsing{overflow:hidden;padding:0;display:flex}
+.desk-browser.browsing{overflow:hidden;padding:0;display:flex;flex-direction:column;position:relative}
 .desk-frame{flex:1;width:100%;height:100%;border:0;background:#fff}
 
 /* Chrome real en la nube */
@@ -77,3 +77,36 @@
 .desk-premium{margin:14px;padding:14px;border-radius:10px;background:#0d0d12;
   border:1px solid #b8860b;color:#e8d9a0;font-size:13px}
 .desk-premium b{display:block;margin-bottom:6px}
+
+/* ---- Cursor táctil + pantalla completa para Chrome real ---- */
+#desk.desk-fullscreen .chat-top{display:none}
+#desk.desk-fullscreen .desk-dock{display:none}
+#desk.desk-fullscreen .desk-stage{padding:0}
+#desk.desk-fullscreen .desk-window{border-radius:0;border:0}
+#desk.desk-fullscreen .desk-url-row{padding:4px 6px}
+
+.desk-frame-wrap{position:relative;flex:1;min-height:0;width:100%;overflow:hidden}
+.desk-frame-wrap .desk-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;pointer-events:none}
+.desk-touch-overlay{position:absolute;inset:0;z-index:2;touch-action:none;background:transparent}
+.desk-cursor{
+  position:absolute;top:0;left:0;width:26px;height:26px;border-radius:50%;
+  background:rgba(245,158,11,.28);border:2px solid #f59e0b;
+  transform:translate(-50%,-50%);pointer-events:none;opacity:0;z-index:3;
+  transition:opacity .25s,transform .08s,background .15s;
+}
+.desk-cursor.pressed{background:rgba(245,158,11,.5);transform:translate(-50%,-50%) scale(1.15)}
+.desk-cursor.tap{background:rgba(34,197,94,.55);border-color:#22c55e;transform:translate(-50%,-50%) scale(1.4)}
+
+.desk-fs-exit{
+  position:absolute;top:8px;right:8px;z-index:6;width:32px;height:32px;border-radius:50%;
+  background:rgba(0,0,0,.6);color:#fff;border:0;font-size:15px;line-height:32px;
+}
+.desk-touch-bar{
+  display:flex;gap:6px;padding:8px;overflow-x:auto;background:#0c0c10;
+  border-top:1px solid #1c1c1e;flex-shrink:0;
+}
+.desk-touch-bar button{
+  flex-shrink:0;border:1px solid #2a2a30;background:#18181d;color:#e4e4e7;
+  border-radius:8px;padding:8px 12px;font-size:13px;white-space:nowrap;
+}
+.desk-touch-bar button:active{background:#26262c}
