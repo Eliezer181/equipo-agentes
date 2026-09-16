@@ -28,36 +28,45 @@
     return el;
   }
 
-  var timer = null;
-  var step = 0;
-  function startThink(userText) {
+  var poll = null;
+  function agentId() {
+    return current && current.type === "specialist" ? current.id : "";
+  }
+  function setText(t) {
+    var el = document.getElementById("think-text");
+    if (el && t) el.textContent = t;
+  }
+  async function tick() {
+    var id = agentId();
+    if (!id) return;
+    try {
+      var res = await fetch("/api/specialists/" + encodeURIComponent(id) + "/computer/files/" + encodeURIComponent(".live.json"));
+      if (!res.ok) return;
+      var data = await res.json();
+      var body = data.body || data.text || "";
+      var parsed = {};
+      try { parsed = JSON.parse(body); } catch (_) {}
+      if (parsed.text) setText(parsed.text);
+    } catch (_) {}
+  }
+  function startThink() {
     var el = bar();
-    var web = /google|naveg|captura|screenshot|web|página|pagina|busc/i.test(userText || "");
-    var lines = web
-      ? ["Razonando…", "Entrando al navegador…", "Tomando captura…"]
-      : ["Razonando…", "Pensando el pedido…"];
-    step = 0;
-    document.getElementById("think-text").textContent = lines[0];
+    setText("Razonando…");
     el.classList.remove("hidden");
-    clearInterval(timer);
-    timer = setInterval(function () {
-      step = (step + 1) % lines.length;
-      var t = document.getElementById("think-text");
-      if (t) t.textContent = lines[step];
-    }, 1400);
+    clearInterval(poll);
+    poll = setInterval(tick, 450);
+    tick();
   }
   function stopThink() {
-    clearInterval(timer);
-    timer = null;
+    clearInterval(poll);
+    poll = null;
     var el = document.getElementById("think-bar");
     if (el) el.classList.add("hidden");
   }
 
   var form = document.getElementById("composer");
   if (form) {
-    form.addEventListener("submit", function () {
-      startThink((document.getElementById("input") || {}).value || "");
-    }, true);
+    form.addEventListener("submit", function () { startThink(); }, true);
   }
   var origFetch = window.fetch;
   window.fetch = function () {
@@ -66,4 +75,28 @@
     if (/\/chat$/.test(url)) return p.finally(stopThink);
     return p;
   };
+
+  function syncChrome() {
+    var at = document.getElementById("btn-at");
+    if (at) at.classList.toggle("hidden", !(current && current.type === "group"));
+  }
+  var _openChat = window.openChat;
+  if (typeof openChat === "function") {
+    var oc = openChat;
+    openChat = async function () {
+      var r = oc.apply(this, arguments);
+      syncChrome();
+      return r;
+    };
+  }
+  var _openGroup = window.openGroup;
+  if (typeof openGroup === "function") {
+    var og = openGroup;
+    openGroup = async function () {
+      var r = og.apply(this, arguments);
+      syncChrome();
+      return r;
+    };
+  }
+  syncChrome();
 })();
