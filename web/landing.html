@@ -39,7 +39,35 @@
       </div>
     </nav>
 
-    <section class="playground" id="top" data-playground data-reveal data-slide="down">
+    <section class="hero" id="top">
+      <div class="hero-visual" data-reveal data-slide="down">
+        <div class="hero-logo-stage">
+          <div class="logo-live logo-live--hero" data-logo data-parallax>
+            <picture>
+              <source srcset="/static/brand/logo-glou-512.webp" type="image/webp" />
+              <img src="/static/brand/logo-glou-512.png" width="180" height="180" alt="Glou" decoding="async" />
+            </picture>
+            <span class="logo-eyes" aria-hidden="true"></span>
+            <span class="logo-glow" aria-hidden="true"></span>
+          </div>
+          <video class="hero-video hidden" id="hero-video" muted playsinline autoplay loop preload="metadata" poster="/static/brand/logo-glou-512.png" aria-label="Glou en movimiento">
+            <source src="/static/brand/hero-muted.mp4" type="video/mp4" />
+          </video>
+        </div>
+      </div>
+      <h1 class="hero-headline" data-reveal data-slide="down" data-write data-write-mode="chars">Glou.</h1>
+      <p class="hero-sub" data-reveal data-slide="down" data-write data-write-mode="words">Un equipo de agentes. A tu ritmo.</p>
+      <div class="ctas" data-reveal data-slide="down" data-stagger>
+        <a class="btn btn-primary" href="/registro">Empezar gratis</a>
+        <a class="btn btn-secondary" href="#planes">Ver planes</a>
+      </div>
+    </section>
+
+    <section class="section trust-line" data-reveal data-slide="down">
+      <p class="tagline" data-write data-write-mode="words">Agentes que laburan con vos.</p>
+    </section>
+
+    <section class="playground" id="probar" data-playground data-reveal data-slide="down">
       <p class="play-kicker">Probá una instrucción</p>
       <div class="play-shell">
         <div class="play-head">
@@ -68,34 +96,6 @@
         </form>
       </div>
       <p class="play-hint">Enter envía. Shift+Enter baja de línea.</p>
-    </section>
-
-    <section class="hero">
-      <div class="hero-visual" data-reveal data-slide="down">
-        <div class="hero-logo-stage">
-          <div class="logo-live logo-live--hero" data-logo data-parallax>
-            <picture>
-              <source srcset="/static/brand/logo-glou-512.webp" type="image/webp" />
-              <img src="/static/brand/logo-glou-512.png" width="180" height="180" alt="Glou" decoding="async" />
-            </picture>
-            <span class="logo-eyes" aria-hidden="true"></span>
-            <span class="logo-glow" aria-hidden="true"></span>
-          </div>
-          <video class="hero-video hidden" id="hero-video" muted playsinline autoplay loop preload="metadata" poster="/static/brand/logo-glou-512.png" aria-label="Glou en movimiento">
-            <source src="/static/brand/hero-muted.mp4" type="video/mp4" />
-          </video>
-        </div>
-      </div>
-      <h1 class="hero-headline" data-reveal data-slide="down" data-write data-write-mode="chars">Glou.</h1>
-      <p class="hero-sub" data-reveal data-slide="down" data-write data-write-mode="words">Un equipo de agentes. A tu ritmo.</p>
-      <div class="ctas" data-reveal data-slide="down" data-stagger>
-        <a class="btn btn-primary" href="/registro">Empezar gratis</a>
-        <a class="btn btn-secondary" href="#planes">Ver planes</a>
-      </div>
-    </section>
-
-    <section class="section trust-line" data-reveal data-slide="down">
-      <p class="tagline" data-write data-write-mode="words">Agentes que laburan con vos.</p>
     </section>
 
     <section class="section" id="que-es">
