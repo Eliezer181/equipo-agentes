@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#050506" />
-  <title>Plan Pro · Glou</title>
+  <title>Premium · Glou</title>
   <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/favicon-32.png" />
-  <link rel="stylesheet" href="/static/marketing.css?v=3" />
+  <link rel="stylesheet" href="/static/marketing.css?v=5" />
+  <link rel="stylesheet" href="/static/scroll-fx.css?v=2" />
 </head>
 <body>
   <div class="wrap">
@@ -21,14 +22,22 @@
     </nav>
 
     <div class="auth-card">
-      <h1>Cupo agotado.</h1>
-      <p class="sub">Pro · 30 USDT / mes · TRC20</p>
+      <h1>Pasá a Premium.</h1>
+      <p class="sub">16 USDT / mes · Base44 Superagent · TRC20</p>
 
-      <div class="pay-amount">30 USDT</div>
-      <p class="sub" style="margin:0 0 8px">Dirección y QR abajo. Confirmamos tu pago a mano.</p>
+      <div class="pay-amount">16 USDT</div>
+      <p class="sub" style="margin:0 0 8px">Equivale a 16 USD. Dirección y QR abajo. Confirmamos tu pago a mano.</p>
       <div class="pay-net">Red: TRX Tron (TRC20) — no uses ERC20 ni otra red</div>
 
-      <div class="warn">Si mandás por otra red, el pago se puede perder. Solo TRC20.</div>
+      <ul class="feat-list feat-list--pay">
+        <li>Base44 Superagent en los turnos profundos</li>
+        <li>Herramientas, memoria y razonamiento en varios pasos</li>
+        <li>Sin tope del cupo gratis de 5 créditos</li>
+        <li>Gemini como respaldo automático</li>
+        <li>Equipo de especialistas y grupos, en un solo hilo</li>
+      </ul>
+
+      <div class="warn">Si mandás por otra red, el pago se puede perder. Solo TRC20. El monto es 16 USDT, no 30.</div>
 
       <label>Dirección de depósito (TRC20)</label>
       <div class="addr" id="pay-address">Cargando…</div>
@@ -46,6 +55,6 @@
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-  <script src="/static/paywall.js?v=1"></script>
+  <script src="/static/paywall.js?v=2"></script>
 </body>
 </html>
