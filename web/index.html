@@ -6,12 +6,13 @@
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Equipo · Agentes</title>
-  <link rel="stylesheet" href="/static/styles.css?v=23" />
+  <link rel="stylesheet" href="/static/styles.css?v=24" />
   <style>
     .palette button{width:28px;height:28px;border-radius:50%;border:2px solid #111;padding:0}
     .palette button.on{outline:2px solid #fff}
     .chat-who{flex:1;min-width:0}
-    #btn-agent-menu{margin-left:auto;flex-shrink:0;width:36px;height:36px;border:0;border-radius:50%;background:#1c1c1e;color:#f4f4f5}
+    #btn-agent-menu,#btn-desk{margin-left:4px;flex-shrink:0;width:36px;height:36px;border:0;border-radius:50%;background:#1c1c1e;color:#f4f4f5}
+    #btn-desk{font-size:15px}
     .modal{z-index:40}
     .switch{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
     .stack-actions{display:flex;flex-direction:column;gap:8px}
@@ -75,6 +76,7 @@
             <div id="chat-title" class="meta"></div>
           </div>
         </button>
+        <button type="button" id="btn-desk" title="Computadora del agente">⌂</button>
         <button type="button" id="btn-agent-menu" title="Opciones">⋮</button>
       </header>
       <div id="thread" class="thread"></div>
@@ -87,6 +89,42 @@
         <input id="input" autocomplete="off" placeholder="Mensaje" enterkeyhint="send" />
         <button type="submit">Enviar</button>
       </form>
+    </section>
+    <section id="desk" class="screen">
+      <header class="top chat-top">
+        <button type="button" id="btn-desk-back" class="back">←</button>
+        <div class="who-text">
+          <div id="desk-agent" class="name">PC</div>
+          <div id="desk-status" class="meta">en línea</div>
+        </div>
+      </header>
+      <div id="desk-stage" class="desk-stage">
+        <div class="desk-window">
+          <div class="desk-pane" data-desk-pane="files">
+            <div class="desk-pane-bar">Archivos <button type="button" id="desk-add-file" class="desk-mini">+</button></div>
+            <div id="desk-files" class="desk-files"></div>
+          </div>
+          <div class="desk-pane" data-desk-pane="browser" hidden>
+            <form id="desk-url-form" class="desk-url-row">
+              <input id="desk-url" value="https://" autocomplete="off" />
+              <button type="submit">Ir</button>
+            </form>
+            <div id="desk-browser" class="desk-browser"></div>
+          </div>
+          <div class="desk-pane" data-desk-pane="term" hidden>
+            <pre id="desk-term" class="desk-term"></pre>
+            <form id="desk-term-form" class="desk-cmd-row">
+              <span>%</span>
+              <input id="desk-cmd" autocomplete="off" placeholder="comando" />
+            </form>
+          </div>
+        </div>
+        <nav class="desk-dock">
+          <button type="button" data-desk-app="files" class="on">Archivos</button>
+          <button type="button" data-desk-app="browser">Navegador</button>
+          <button type="button" data-desk-app="term">Terminal</button>
+        </nav>
+      </div>
     </section>
     <div id="toast" role="status" aria-live="polite"></div>
     <div id="modal" class="modal hidden">
@@ -157,9 +195,10 @@
       </form>
     </div>
   </div>
-  <script src="/static/avatar.js?v=23"></script>
-  <script src="/static/app.js?v=23"></script>
-  <script src="/static/color-ui.js?v=23"></script>
-  <script src="/static/group-ui.js?v=23"></script>
+  <script src="/static/avatar.js?v=24"></script>
+  <script src="/static/app.js?v=24"></script>
+  <script src="/static/color-ui.js?v=24"></script>
+  <script src="/static/group-ui.js?v=24"></script>
+  <script src="/static/computer-ui.js?v=24"></script>
 </body>
 </html>
