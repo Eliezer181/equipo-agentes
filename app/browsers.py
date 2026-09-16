@@ -185,19 +185,64 @@ def _snap(page, specialist_id: str) -> dict:
     }
 
 
+def _reconnect(specialist_id: str) -> str:
+    """Re-crea la sesión del navegador tras una caída y conserva la última página."""
+    if not configured():
+        raise BrowserError("Browserbase no está configurado (faltan los secretos)")
+    st = _SESSIONS.pop(specialist_id, None) or {}
+    last_url = st.get("last_url", "")
+    s = _api("/sessions", {"projectId": PROJECT_ID, "timeout": SESSION_SECONDS,
+                           "keepAlive": True,
+                           "browserSettings": {"viewport": {"width": VIEWPORT_W, "height": VIEWPORT_H}}})
+    if not s.get("connectUrl"):
+        raise BrowserError("la sesión no devolvió conexión")
+    try:
+        d = _api(f"/sessions/{s['id']}/debug")
+        viewer = d.get("debuggerFullscreenUrl") or d.get("debuggerUrl") or ""
+    except BrowserError:
+        viewer = ""
+    _SESSIONS[specialist_id] = {
+        "session": s["id"],
+        "viewer": viewer,
+        "expires": s.get("expiresAt"),
+        "last_url": last_url,
+    }
+    return s["connectUrl"]
+
+
 def action(specialist_id: str, do: str, url: str = "",
             selector: str = "", text: str = "",
             x: float | None = None, y: float | None = None) -> dict:
-    connect = _connect_url(specialist_id)
+    reconnected = False
+    try:
+        connect = _connect_url(specialist_id)
+    except BrowserError:
+        # auto-reconexión: la sesión murió, la re-creamos y volvemos a la última página
+        connect = _reconnect(specialist_id)
+        reconnected = True
     from playwright.sync_api import TimeoutError as PWTimeout, sync_playwright
 
     p = sync_playwright().start()
     try:
-        browser = p.chromium.connect_over_cdp(connect, timeout=18000)
+        try:
+            browser = p.chromium.connect_over_cdp(connect, timeout=18000)
+        except Exception:
+            if reconnected:
+                raise
+            connect = _reconnect(specialist_id)
+            reconnected = True
+            browser = p.chromium.connect_over_cdp(connect, timeout=18000)
         try:
             ctx = browser.contexts[0]
             page = ctx.pages[0] if ctx.pages else ctx.new_page()
-            out: dict = {"do": do}
+            out: dict = {"do": do, "reconnected": reconnected}
+            if reconnected and do != "navigate":
+                st = _SESSIONS.get(specialist_id) or {}
+                if st.get("last_url"):
+                    try:
+                        page.goto(st["last_url"], timeout=20000, wait_until="domcontentloaded")
+                    except Exception:
+                        pass
             if do == "navigate":
                 page.goto(_valid_url(url), timeout=20000, wait_until="domcontentloaded")
                 out.update(_snap(page, specialist_id))
@@ -273,6 +318,9 @@ def action(specialist_id: str, do: str, url: str = "",
                 raise BrowserError(f"acción desconocida: {do}")
             try:
                 out.update(url=page.url, title=_safe_title(page))
+                st = _SESSIONS.get(specialist_id)
+                if st is not None and page.url and page.url != "about:blank":
+                    st["last_url"] = page.url
             except Exception:
                 pass
             return out
