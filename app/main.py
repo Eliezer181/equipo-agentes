@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app import base44_client, billing, users_auth
+from app import base44_client, billing, computer, users_auth
 from app.llm import LAST_PROVIDER, _models, _using_gemini, reply, reply_messages_routed
 from contextvars import ContextVar
 from app.media import attach_media
@@ -89,6 +89,19 @@ class ReorderIn(BaseModel):
     ids: list[str]
 
 
+class ComputerFileIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    body: str = Field(default="", max_length=200_000)
+
+
+class ComputerExecIn(BaseModel):
+    cmd: str = Field(min_length=1, max_length=4000)
+
+
+class ComputerFetchIn(BaseModel):
+    url: str = Field(min_length=4, max_length=500)
+
+
 class KickIn(BaseModel):
     member_id: str
 
@@ -118,12 +131,12 @@ def speakers_for(group: dict, payload: ChatIn) -> list[dict]:
 
 @app.get("/health")
 def health():
-    return {"ok": True, "release": "v11"}
+    return {"ok": True, "release": "v12"}
 
 
 @app.get("/api/version")
 def version():
-    return {"release": "v11", "gemini": _using_gemini(), "models": _models()}
+    return {"release": "v12", "gemini": _using_gemini(), "models": _models(), "computer": True}
 
 
 @app.get("/")
@@ -310,14 +323,42 @@ def api_chat(specialist_id: str, payload: ChatIn, request: Request):
     messages = load_messages(specialist_id)
     user_text = payload.message.strip()
     messages.append({"role": "user", "content": user_text, "at": _now()})
+    instructions = spec["instructions"] + "\n\n" + MEDIA_HINT + computer.TOOL_HINT
     try:
         text = reply(
-            spec["instructions"] + "\n\n" + MEDIA_HINT,
+            instructions,
             messages,
             provider=payload.provider,
             scope=f"specialist:{specialist_id}",
         )
+        # Loop de herramientas: el agente puede usar SU computadora
+        # (bash, python, archivos, fetch). Máx 3 rondas por mensaje.
+        for _round in range(3):
+            tool = computer.extract_tool(text)
+            if not tool:
+                break
+            result = computer.execute_tool(specialist_id, spec.get("name"), tool)
+            messages.append({"role": "assistant", "content": text, "at": _now()})
+            note = (
+                "RESULTADO DE TU COMPUTADORA:\n" + result + "\n\n"
+                + ("Última ronda: usá este resultado y respondé al usuario sin más bloques JSON."
+                   if _round == 2 else
+                   "Podés usar otra herramienta con otro bloque JSON o responder al usuario.")
+            )
+            messages.append({"role": "user", "content": note, "at": _now()})
+            try:
+                text = reply(
+                    instructions,
+                    messages,
+                    provider=payload.provider,
+                    scope=f"specialist:{specialist_id}",
+                )
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail=str(exc)) from exc
+        text = computer.strip_tools(text) or text
         text = attach_media(user_text, text)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     messages.append({"role": "assistant", "content": text, "at": _now()})
@@ -453,6 +494,72 @@ def _speak(member: dict, group: dict, turn: dict | None = None) -> str:
     if last_error:
         raise last_error
     return ""
+
+
+
+# ---------------------------------------------------------------------------
+# Computadora propia de cada agente (escritorio real, persistente en /app/data)
+# ---------------------------------------------------------------------------
+
+def _spec_or_404(specialist_id: str) -> dict:
+    spec = get_specialist(specialist_id)
+    if not spec:
+        raise HTTPException(status_code=404, detail="No existe ese especialista")
+    return spec
+
+
+@app.get("/api/specialists/{specialist_id}/computer")
+def api_computer_state(specialist_id: str):
+    spec = _spec_or_404(specialist_id)
+    try:
+        return {"agent": spec["name"], "files": computer.ls(specialist_id, spec.get("name"))}
+    except computer.ComputerError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/specialists/{specialist_id}/computer/files")
+def api_computer_write(specialist_id: str, payload: ComputerFileIn):
+    spec = _spec_or_404(specialist_id)
+    try:
+        return computer.write(specialist_id, payload.name, payload.body)
+    except computer.ComputerError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/specialists/{specialist_id}/computer/files/{name}")
+def api_computer_read(specialist_id: str, name: str):
+    _spec_or_404(specialist_id)
+    try:
+        return {"name": name, "body": computer.read(specialist_id, name)}
+    except computer.ComputerError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.delete("/api/specialists/{specialist_id}/computer/files/{name}")
+def api_computer_delete(specialist_id: str, name: str):
+    _spec_or_404(specialist_id)
+    try:
+        return computer.delete(specialist_id, name)
+    except computer.ComputerError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/specialists/{specialist_id}/computer/exec")
+def api_computer_exec(specialist_id: str, payload: ComputerExecIn):
+    _spec_or_404(specialist_id)
+    try:
+        return computer.run(specialist_id, payload.cmd)
+    except computer.ComputerError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/specialists/{specialist_id}/computer/fetch")
+def api_computer_fetch(specialist_id: str, payload: ComputerFetchIn):
+    _spec_or_404(specialist_id)
+    try:
+        return computer.fetch(payload.url)
+    except computer.ComputerError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/groups")

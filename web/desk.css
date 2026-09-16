@@ -55,3 +55,10 @@
   border-radius:999px;padding:8px 12px;font-size:12px;
 }
 .desk-dock button.on{border-color:rgba(251,191,36,.45);color:#fde68a}
+/* Computadora real: borrar archivos y páginas web */
+.desk-file .desk-del{font-style:normal;color:#8e8e93;padding:0 4px;cursor:pointer}
+.desk-file .desk-del:hover{color:#fb7185}
+.desk-page b{color:#fde68a}
+.desk-page span{color:#8e8e93;font-size:12px}
+.desk-page hr{border:0;border-top:1px solid #2c2c2e;margin:10px 0}
+.desk-page p{white-space:pre-wrap;word-break:break-word;color:#d4d4d8}
