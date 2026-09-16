@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 import subprocess
 import sys
 import urllib.request
@@ -57,6 +58,86 @@ def _safe_name(name: str) -> str:
         raise ComputerError("nombre de archivo inválido")
     return name
 
+
+
+# ---------------------------------------------------------------------------
+# VAULT: memoria de credenciales del agente ("conector" persistente).
+# Sobrevive a las sesiones del navegador (vive en el volumen) y guarda
+# usuarios/contraseñas/tokens que el usuario le confía para loguear a
+# sitios (GitHub, Gmail, etc.). Valores encriptados con Fernet; clave en
+# env VAULT_KEY o generada en data/.vault.key (chmod 600). Sin librería
+# cryptography, fallback base64 claro.
+# ---------------------------------------------------------------------------
+
+def _fernet():
+    key = os.environ.get("VAULT_KEY", "").strip()
+    key_path = DATA / ".vault.key"
+    try:
+        from cryptography.fernet import Fernet
+    except Exception:
+        return None
+    try:
+        if not key:
+            if key_path.exists():
+                key = key_path.read_text().strip()
+            else:
+                key = Fernet.generate_key().decode()
+                key_path.write_text(key)
+                try:
+                    os.chmod(key_path, 0o600)
+                except Exception:
+                    pass
+        return Fernet(key.encode() if isinstance(key, str) else key)
+    except Exception:
+        return None
+
+
+def _vault_file(agent_id: str) -> Path:
+    return home(agent_id) / ".vault.json"
+
+
+def _vault_load(agent_id: str) -> dict:
+    f = _vault_file(agent_id)
+    if not f.exists():
+        return {}
+    try:
+        return json.loads(f.read_text(encoding="utf-8") or "{}")
+    except Exception:
+        return {}
+
+
+def _vault_save(agent_id: str, data: dict) -> None:
+    f = _vault_file(agent_id)
+    f.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    try:
+        os.chmod(f, 0o600)
+    except Exception:
+        pass
+
+
+def _vault_put(agent_id: str, key: str, value: str) -> None:
+    data = _vault_load(agent_id)
+    f = _fernet()
+    import base64 as _b64
+    data[key] = (f.encrypt(value.encode()).decode() if f
+                 else "b64:" + _b64.b64encode(value.encode()).decode())
+    _vault_save(agent_id, data)
+
+
+def _vault_get(agent_id: str, key: str) -> str | None:
+    import base64 as _b64
+    val = _vault_load(agent_id).get(key)
+    if not val:
+        return None
+    if val.startswith("b64:"):
+        return _b64.b64decode(val[4:]).decode()
+    f = _fernet()
+    if f:
+        try:
+            return f.decrypt(val.encode()).decode()
+        except Exception:
+            return None
+    return val
 
 def home(agent_id: str, agent_name: str | None = None) -> Path:
     """Directorio del agente; lo crea con un README de bienvenida la 1ra vez."""
@@ -265,7 +346,19 @@ TOOL_HINT = (
     'Listar botones/links clickeables: {"tool":"browser","action":"elements"}\n'
     'Scroll: {"tool":"browser","action":"scroll","text":"down"} · '
     'Atrás: {"tool":"browser","action":"back"} · '
+    'Captura para mostrar lo que ves: {"tool":"browser","action":"screenshot"} (devuelve una URL: incluíla en tu respuesta como ![captura](URL)) · '
     'Apagar: {"tool":"browser","action":"stop"}\n'
+    "## Tus credenciales (vault persistente)\n"
+    "Tenés una memoria de credenciales que SOBREVIVE al apagado del navegador.\n"
+    'Guardar: {"tool":"vault","action":"save","key":"github","value":"usuario:token"} · '
+    'Leer: {"tool":"vault","action":"get","key":"github"} · '
+    'Listar: {"tool":"vault","action":"list"}\n'
+    "LOGIN en sitios: 1) intentá entrar; 2) si pide credenciales, consultá el "
+    "vault (get) y NUNCA inventes; 3) si no la tenés, pedile al usuario por "
+    "el chat usuario/contraseña o token, guardala con vault save y usala; "
+    "4) si llega un código 2FA (Gmail/SMS), pedile al usuario que te pegue el "
+    "código en el chat; el navegador queda encendido 15 min esperándolo. "
+    "NUNCA muestres contraseñas ni tokens en tus respuestas.\n"
     'Flujo típico: navigate → read (o elements) → click_text → read → respondé al usuario. '
     "Vas a recibir el resultado de cada acción y podés seguir usándola o responder final. "
     "Después del bloque podés escribir una frase breve. Si no la necesitás, "
@@ -282,7 +375,7 @@ def extract_tool(text: str) -> dict | None:
             data = json.loads(m.group(1))
         except (json.JSONDecodeError, ValueError):
             continue
-        if isinstance(data, dict) and data.get("tool") in {"bash", "python", "write", "read", "fetch", "browser"}:
+        if isinstance(data, dict) and data.get("tool") in {"bash", "python", "write", "read", "fetch", "browser", "vault"}:
             return data
     return None
 
@@ -292,7 +385,7 @@ def strip_tools(text: str) -> str:
     return (_TOOL_BLOCK.sub("", text or "")).strip()
 
 
-def _browser_tool(agent_id: str, tool: dict, is_pro: bool = False) -> str:
+def _browser_tool(agent_id: str, tool: dict, is_pro: bool = False, base_url: str = "") -> str:
     """Herramienta del chat: maneja el Chrome real en la nube."""
     from app import browsers
 
@@ -303,7 +396,8 @@ def _browser_tool(agent_id: str, tool: dict, is_pro: bool = False) -> str:
         if act not in {"start", "stop", "status"} and not browsers.status(agent_id).get("on"):
             browsers.start(agent_id, is_pro=is_pro)
         if act not in {"start", "stop", "status", "navigate", "read", "click",
-                       "click_text", "type", "elements", "key", "scroll", "back"}:
+                       "click_text", "type", "elements", "key", "scroll", "back",
+                       "screenshot"}:
             return ("acción de navegador desconocida (usá start|navigate|click_text|"
                     "type|key|elements|read|scroll|back|stop)")
         if act == "status":
@@ -352,6 +446,14 @@ def _browser_tool(agent_id: str, tool: dict, is_pro: bool = False) -> str:
                 return "no se encontraron elementos clickeables con texto en la página"
             return "elementos clickeables de la página (usá click_text con estos textos):\n" + "\n".join(
                 "- [" + str(e.get("tag")) + "] " + str(e.get("text")) for e in els[:40])
+        if act == "screenshot":
+            r = browsers.action(agent_id, "screenshot")
+            shot_url = str(r.get("shot") or "")
+            if base_url:
+                shot_url = base_url.rstrip("/") + shot_url
+            return ("captura de pantalla tomada (" + str(r.get("size")) + " bytes). "
+                    "Para mostrársela al usuario incluí en tu respuesta final "
+                    "exactamente: ![captura](" + shot_url + ")")
         if act == "scroll":
             browsers.action(agent_id, "scroll", text=str(tool.get("text") or "down"))
             return "scroll OK"
@@ -362,7 +464,43 @@ def _browser_tool(agent_id: str, tool: dict, is_pro: bool = False) -> str:
         return f"error de navegador: {exc}"
 
 
-def execute_tool(agent_id: str, agent_name: str | None, tool: dict, is_pro: bool = False) -> str:
+def _vault_tool(agent_id: str, tool: dict) -> str:
+    """Memoria de credenciales del agente: guardar/leer tokens y contraseñas."""
+    act = str(tool.get("action") or "").strip().lower()
+    key = str(tool.get("key") or "").strip()
+    if act not in {"save", "get", "list", "delete"}:
+        return "acción de vault desconocida (usá save|get|list|delete)"
+    if act in {"save", "get", "delete"} and not key:
+        return "falta el nombre (key) de la credencial"
+    if act == "save":
+        val = str(tool.get("value") or "")
+        if not val:
+            return "falta el valor a guardar"
+        _vault_put(agent_id, key, val)
+        return ("credencial '" + key + "' guardada en tu memoria permanente "
+                "(sobrevive al apagado del navegador). Nunca la muestres en texto "
+                "al usuario; usala para loguear cuando te la pida.")
+    if act == "get":
+        val = _vault_get(agent_id, key)
+        if val is None:
+            return ("no tenés guardada ninguna credencial '" + key + "'. Pedile al "
+                    "usuario usuario/contraseña/token por el chat y guardala con "
+                    "la herramienta vault (action save).")
+        return "credencial '" + key + "': " + val
+    if act == "list":
+        keys = sorted(_vault_load(agent_id).keys())
+        return "credenciales guardadas: " + (", ".join(keys) if keys else "(ninguna)")
+    if act == "delete":
+        data = _vault_load(agent_id)
+        if key in data:
+            del data[key]
+            _vault_save(agent_id, data)
+            return "credencial '" + key + "' borrada"
+        return "no existía la credencial '" + key + "'"
+
+
+def execute_tool(agent_id: str, agent_name: str | None, tool: dict, is_pro: bool = False,
+                  base_url: str = "") -> str:
     """Ejecuta una herramienta y devuelve el resultado como texto para el LLM."""
     kind = (tool or {}).get("tool")
     try:
@@ -395,7 +533,9 @@ def execute_tool(agent_id: str, agent_name: str | None, tool: dict, is_pro: bool
                 body = body[:6_000] + "\n… (truncado)"
             return f"contenido de {tool.get('name')}:\n{body}"
         if kind == "browser":
-            return _browser_tool(agent_id, tool, is_pro=is_pro)
+            return _browser_tool(agent_id, tool, is_pro=is_pro, base_url=base_url)
+        if kind == "vault":
+            return _vault_tool(agent_id, tool)
         if kind == "fetch":
             r = fetch(str(tool.get("url") or ""))
             head = f"{r['title'] or '(sin título)'} — {r['url']}\n\n"

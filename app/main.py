@@ -343,16 +343,18 @@ def api_chat(specialist_id: str, payload: ChatIn, request: Request):
         # Loop de herramientas: el agente puede usar SU computadora
         # (bash, python, archivos, fetch, NAVEGADOR REAL). Máx 6 rondas:
         # una tarea de navegación real necesita navigate→read→click→read→…
-        for _round in range(6):
+        for _round in range(8):
             tool = computer.extract_tool(text)
             if not tool:
                 break
-            result = computer.execute_tool(specialist_id, spec.get("name"), tool, is_pro=bool(user and user.get("is_pro")))
+            result = computer.execute_tool(specialist_id, spec.get("name"), tool,
+                                           is_pro=bool(user and user.get("is_pro")),
+                                           base_url=str(request.base_url).rstrip("/"))
             messages.append({"role": "assistant", "content": text, "at": _now()})
             note = (
                 "RESULTADO DE TU COMPUTADORA:\n" + result + "\n\n"
                 + ("Última ronda: usá este resultado y respondé al usuario sin más bloques JSON."
-                   if _round == 5 else
+                   if _round == 7 else
                    "Podés usar otra herramienta con otro bloque JSON o responder al usuario.")
             )
             messages.append({"role": "user", "content": note, "at": _now()})
@@ -601,6 +603,20 @@ def api_browser(specialist_id: str, payload: BrowserActionIn, request: Request):
         raise HTTPException(status_code=402, detail=str(exc)) from exc
     except browsers.BrowserError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/specialists/{specialist_id}/browser/shot/{name}")
+def api_browser_shot(specialist_id: str, name: str):
+    """Sirve las capturas del Chrome real del agente (PNG)."""
+    import re as _re
+    if not _re.fullmatch(r"[A-Za-z0-9_.-]+\.png", name or ""):
+        raise HTTPException(status_code=400, detail="nombre inválido")
+    from fastapi.responses import FileResponse
+    from app.store import DATA
+    f = DATA / "computers" / specialist_id / "screenshots" / name
+    if not f.is_file():
+        raise HTTPException(status_code=404, detail="captura no encontrada")
+    return FileResponse(f, media_type="image/png")
 
 
 @app.get("/api/specialists/{specialist_id}/computer/proxy")

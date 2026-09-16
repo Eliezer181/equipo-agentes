@@ -51,6 +51,16 @@ if (heavyToggle) {
   syncHeavyUi();
 }
 
+// Convierte markdown mínimo a HTML seguro: imágenes ![alt](url) y links [texto](url)
+function renderContent(text) {
+  let html = escapeHtml(text);
+  html = html.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g,
+    (m, alt, url) => `<a href="${url}" target="_blank" rel="noopener"><img class="chat-img" src="${url}" alt="${alt}" loading="lazy" /></a>`);
+  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return html;
+}
+
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -99,7 +109,7 @@ function renderThread(messages) {
   if (current.type === "group") {
     thread.innerHTML = (messages || []).map((m) => groupBubble(m)).join("");
   } else {
-    thread.innerHTML = (messages || []).map((m) => `<div class="bubble ${m.role}">${escapeHtml(m.content)}</div>`).join("");
+    thread.innerHTML = (messages || []).map((m) => `<div class="bubble ${m.role}">${renderContent(m.content)}</div>`).join("");
   }
   thread.scrollTop = thread.scrollHeight;
 }
@@ -109,7 +119,7 @@ function groupBubble(m) {
     return `<div class="bubble user"><div class="sender user-sender">${escapeHtml(current.leader || "Líder")}</div>${escapeHtml(m.content)}</div>`;
   }
   const color = m.color || "#f97316";
-  return `<div class="bubble assistant"><div class="sender" style="color:${color}">${escapeHtml(m.sender)}</div>${escapeHtml(m.content)}</div>`;
+  return `<div class="bubble assistant"><div class="sender" style="color:${color}">${escapeHtml(m.sender)}</div>${renderContent(m.content)}</div>`;
 }
 
 async function loadList() {

@@ -10,6 +10,7 @@ el usuario/el agente la apagan explícitamente.
 from __future__ import annotations
 
 import json
+import secrets
 import os
 import re
 import urllib.error
@@ -186,8 +187,8 @@ def action(specialist_id: str, do: str, url: str = "",
             x: float | None = None, y: float | None = None) -> dict:
     """Ejecuta una acción en el Chrome real del especialista.
 
-    do: navigate | click | type | scroll | back | read |
-        click_xy | type_focused | key
+    do: navigate | click | click_text | type | key | elements | scroll |
+        back | read | click_xy | type_focused | screenshot
     x/y (click_xy) son fracciones 0..1 del viewport (cursor táctil:
     el frontend nunca necesita saber el tamaño real de la página).
     Cada acción abre y cierra su conexión CDP (sin estado entre hilos).
@@ -268,6 +269,16 @@ def action(specialist_id: str, do: str, url: str = "",
                 if not text:
                     raise BrowserError("falta la tecla")
                 page.keyboard.press(text)
+            elif do == "screenshot":
+                # Captura de lo que se ve ahora -> archivo PNG servido por URL
+                from app.store import DATA
+                shot_dir = DATA / "computers" / specialist_id / "screenshots"
+                shot_dir.mkdir(parents=True, exist_ok=True)
+                name = f"{int(__import__('time').time())}_{secrets.token_hex(4)}.png"
+                png = page.screenshot(timeout=20000)
+                (shot_dir / name).write_bytes(png)
+                out.update(shot=f"/api/specialists/{specialist_id}/browser/shot/{name}",
+                           size=len(png))
             elif do == "read":
                 body = page.locator("body").inner_text(timeout=15000)
                 out.update(text=body[:4000])
