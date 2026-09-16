@@ -15,6 +15,21 @@
     if (spec.archived) return false;
     return !!(spec.last_message || spec.last_at);
   }
+  function ensureClose() {
+    var sheet = document.querySelector("#edit-agent");
+    if (!sheet || document.getElementById("agent-x")) return;
+    var x = document.createElement("button");
+    x.type = "button";
+    x.id = "agent-x";
+    x.className = "agent-close";
+    x.setAttribute("aria-label", "Volver");
+    x.textContent = "×";
+    sheet.appendChild(x);
+    x.addEventListener("click", function () {
+      var modal = document.getElementById("agent-modal");
+      if (modal) modal.classList.add("hidden");
+    });
+  }
   function paintHero() {
     var face = document.getElementById("agent-hero-face");
     var state = document.getElementById("agent-state");
@@ -33,8 +48,8 @@
     var count = document.getElementById("work-count");
     var ta = document.getElementById("edit-instructions");
     if (count && ta) count.textContent = String(ta.value || "").length + "/4000";
+    ensureClose();
   }
-
   if (typeof openAgentSheet === "function") {
     var orig = openAgentSheet;
     openAgentSheet = function () {
@@ -44,14 +59,12 @@
       paintHero();
     };
   }
-
   document.addEventListener("click", function (e) {
     if (!e.target.closest("#edit-palette [data-color]")) return;
     setTimeout(paintHero, 0);
   });
   var ta = document.getElementById("edit-instructions");
   if (ta) ta.addEventListener("input", paintHero);
-
   if (typeof openChat === "function") {
     var oc = openChat;
     openChat = async function () {
