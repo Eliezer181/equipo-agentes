@@ -1,17 +1,35 @@
-#conn-modal{display:flex;align-items:flex-end;justify-content:center;padding:0;z-index:70}
+#conn-modal{display:flex;align-items:flex-end;justify-content:center;padding:0;z-index:73}
 #conn-modal.hidden{display:none}
-#conn-modal .sheet{position:relative;width:100%;max-width:560px;margin:0 auto;max-height:92%;overflow:auto;
-  padding:12px 14px calc(16px + env(safe-area-inset-bottom));
-  background:radial-gradient(120% 80% at 10% -10%, rgba(59,130,246,.22), transparent 55%),linear-gradient(180deg,#0d121b,#07080c);
+#conn-modal .sheet{
+  position:relative;isolation:isolate;overflow:auto;
+  width:100%;max-width:560px;margin:0 auto;max-height:92%;
+  padding:14px 14px calc(16px + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(120% 80% at 10% -10%, color-mix(in srgb,var(--agent,#facc15) 26%, transparent), transparent 55%),
+    linear-gradient(180deg,#0d121b,#07080c);
   border-radius:22px 22px 0 0}
-#conn-x{position:absolute;top:10px;right:12px;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.16);background:rgba(16,18,24,.4);color:#f5f5f7}
-.conn-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
-.conn-card{display:grid;grid-template-columns:1fr auto;gap:8px;padding:12px;border-radius:16px;background:rgba(18,24,33,.72);border:1px solid rgba(255,255,255,.08)}
-.conn-card b{display:block}
-.conn-card span{display:block;font-size:12px;color:#9aa3b2;margin-top:3px}
-.conn-card .soon{font-size:11px;color:#a1a1aa}
-.conn-card button{border:0;border-radius:999px;padding:8px 12px;background:rgba(255,255,255,.08);color:#f5f5f7}
-.conn-card button.on{background:#14532d;color:#bbf7d0}
-.conn-form{display:flex;flex-direction:column;gap:8px;grid-column:1/-1}
-.conn-form input{background:#10141c;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px 12px;color:#f5f5f7}
-.conn-form .hint{font-size:11px;color:#8b93a1}
+#conn-modal .sheet::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:repeating-linear-gradient(115deg, transparent 0 18px, rgba(255,255,255,.015) 18px 19px)}
+#conn-modal .sheet > *{position:relative;z-index:1}
+#conn-x{
+  position:absolute;top:10px;right:12px;width:34px;height:34px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.16);background:rgba(16,18,24,.45)!important;color:#f5f5f7!important}
+.conn-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.conn-tile{
+  aspect-ratio:1;border:1px solid rgba(255,255,255,.08);
+  border-radius:20px;background:rgba(12,16,24,.78)!important;color:#f5f5f7!important;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  padding:10px}
+.conn-tile .mark{width:36px;height:36px;border-radius:10px;display:grid;place-items:center}
+.conn-tile b{font-size:11px;font-weight:600}
+.conn-tile em{font-size:10px;color:#9aa3b2;font-style:normal}
+.conn-tile.on{border-color:#34d399;box-shadow:0 0 0 1px rgba(52,211,153,.35)}
+.conn-tile.soon{opacity:.45}
+.conn-go{
+  margin-top:12px;padding:14px;border-radius:18px;
+  background:rgba(12,16,24,.78);border:1px solid rgba(255,255,255,.08)}
+.conn-go button{
+  width:100%;margin-top:8px;border:0;border-radius:14px;padding:12px;
+  background:rgba(255,255,255,.08)!important;color:#f5f5f7!important}
+.conn-go .ghost{background:transparent!important;border:1px solid rgba(255,255,255,.12)!important}
