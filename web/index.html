@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Equipo · Agentes</title>
-  <link rel="stylesheet" href="/static/styles.css?v=27" />
+  <link rel="stylesheet" href="/static/styles.css?v=28" />
   <link rel="stylesheet" href="/static/desk.css?v=31" />
   <style>
     .palette button{width:28px;height:28px;border-radius:50%;border:2px solid #111;padding:0}
@@ -14,18 +14,15 @@
     .chat-who{flex:1;min-width:0}
     #btn-agent-menu,#btn-desk{margin-left:4px;flex-shrink:0;width:36px;height:36px;border:0;border-radius:50%;background:#1c1c1e;color:#f4f4f5}
     #btn-desk{font-size:15px}
-    .modal{z-index:40}
-    .switch{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
-    .stack-actions{display:flex;flex-direction:column;gap:8px}
-    .stack-actions button{width:100%}
     .heavy-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 12px;background:#0a0a0c;border-top:1px solid #1c1c1e;font-size:12px;color:#a1a1aa}
     .heavy-bar.on{color:#fbbf24;background:#14110a}
     .heavy-bar label{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
-    .heavy-bar input{accent-color:#f59e0b}
     .heavy-hint{color:#71717a;font-size:11px}
-    #toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;z-index:50;max-width:90%;background:#1c1c1e;color:#f4f4f5;border:1px solid #333;border-radius:12px;padding:10px 14px;font-size:13px;transition:opacity .2s,transform .2s}
-    #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
     .bubble img{display:block;width:100%;max-width:100%;max-height:200px;height:auto;object-fit:cover;object-position:top center;border-radius:10px;margin:6px 0 2px}
+    .think-bar{display:flex;align-items:center;gap:8px;padding:6px 14px 4px;font-size:12px;color:#8e8e93;background:#0b0b0d}
+    .think-bar.hidden{display:none!important}
+    .think-dot{width:6px;height:6px;border-radius:50%;background:#a1a1aa;animation:think-pulse 1s ease-in-out infinite}
+    @keyframes think-pulse{50%{opacity:.25}}
   </style>
 </head>
 <body>
@@ -175,6 +172,7 @@
   <script src="/static/color-ui.js?v=24"></script>
   <script src="/static/group-ui.js?v=24"></script>
   <script src="/static/computer-ui.js?v=33"></script>
+  <script src="/static/status-ui.js?v=1"></script>
   <script>
     document.addEventListener("click", function (e) {
       var img = e.target.closest(".bubble img");
