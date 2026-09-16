@@ -74,7 +74,7 @@ def register(email: str, password: str) -> dict:
         "password_hash": hashed,
         "created_at": time.time(),
         "plan": "free",
-        "payment_status": "none",  # none | pending | active
+        "payment_status": "none",
         "credits_remaining": FREE_CREDITS,
         "credits_used": 0.0,
     }
@@ -163,8 +163,4 @@ def deduct_credits(email: str, amount: float) -> dict:
 
 
 def credits_exhausted(user: dict | None) -> bool:
-    if not user:
-        return False
-    if user.get("is_pro") or user.get("payment_status") == "active" or user.get("plan") == "pro":
-        return False
-    return float(user.get("credits_remaining") or 0) <= 0
+    return False
