@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import time
 from pathlib import Path
@@ -70,15 +71,40 @@ def get_live(agent_id: str) -> str:
     return ""
 
 
+def save_upload(agent_id: str, data_url: str) -> dict:
+    raw = data_url.split(",", 1)[-1]
+    blob = base64.b64decode(raw)
+    dest = DATA / "computers" / agent_id / "screenshots"
+    dest.mkdir(parents=True, exist_ok=True)
+    name = "upload.png"
+    (dest / name).write_bytes(blob)
+    return {
+        "ok": True,
+        "name": name,
+        "url": f"/api/specialists/{agent_id}/browser/shot/{name}",
+        "size": len(blob),
+    }
+
+
 def install() -> None:
     from app import computer
-    if getattr(computer.execute_tool, "_live_wrapped", False):
-        return
-    orig = computer.execute_tool
+    if not getattr(computer.execute_tool, "_live_wrapped", False):
+        orig = computer.execute_tool
 
-    def wrapped(agent_id, agent_name=None, tool=None, is_pro=False, base_url="", **kw):
-        set_live(agent_id, live_for_tool(tool or {}))
-        return orig(agent_id, agent_name, tool, is_pro=is_pro, base_url=base_url, **kw)
+        def wrapped(agent_id, agent_name=None, tool=None, is_pro=False, base_url="", **kw):
+            set_live(agent_id, live_for_tool(tool or {}))
+            return orig(agent_id, agent_name, tool, is_pro=is_pro, base_url=base_url, **kw)
 
-    wrapped._live_wrapped = True
-    computer.execute_tool = wrapped
+        wrapped._live_wrapped = True
+        computer.execute_tool = wrapped
+
+    if not getattr(computer.write, "_upload_wrapped", False):
+        orig_write = computer.write
+
+        def write(agent_id, name, body):
+            if str(name).endswith(".png") and str(body).startswith("data:image"):
+                return save_upload(agent_id, body)
+            return orig_write(agent_id, name, body)
+
+        write._upload_wrapped = True
+        computer.write = write
