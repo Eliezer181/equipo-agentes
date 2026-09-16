@@ -9,6 +9,14 @@ from app.store import DATA
 
 _LIVE: dict[str, dict] = {}
 
+_SHOT_HINT = (
+    "\nSi el usuario dice 'pasame una captura', 'captura de Google' o "
+    "'entrá al navegador y pasame una captura', no preguntes nada: "
+    "un solo navigate a https://www.google.com (o la URL que nombró). "
+    "Al navegar YA viene la captura. En la respuesta final mostrá "
+    "![captura](la_url). No hagas read ni elements ni otra ronda."
+)
+
 
 def _path(agent_id: str) -> Path:
     return DATA / "computers" / (agent_id or "x") / ".live.json"
@@ -101,6 +109,9 @@ def _latest_shot(agent_id: str, base_url: str = "") -> str:
 
 def install() -> None:
     from app import computer
+    if _SHOT_HINT not in (computer.TOOL_HINT or ""):
+        computer.TOOL_HINT = (computer.TOOL_HINT or "") + _SHOT_HINT
+
     if not getattr(computer.execute_tool, "_live_wrapped", False):
         orig = computer.execute_tool
 
@@ -128,7 +139,7 @@ def install() -> None:
         def _browser_tool(agent_id, tool, is_pro=False, base_url=""):
             text = orig_b(agent_id, tool, is_pro=is_pro, base_url=base_url)
             act = str((tool or {}).get("action") or "").lower()
-            if act == "navigate" and "![captura]" not in str(text):
+            if act in {"navigate", "screenshot"} and "![captura]" not in str(text):
                 shot = _latest_shot(agent_id, base_url)
                 if shot:
                     text = str(text) + " Ya hay captura: ![captura](" + shot + ")"
