@@ -7,7 +7,6 @@
   function applyTheme(color) {
     var c = hex(color);
     document.documentElement.style.setProperty("--agent", c);
-    document.documentElement.style.setProperty("--accent", c);
     var app = document.getElementById("app");
     if (app) app.style.setProperty("--agent", c);
   }
@@ -20,9 +19,12 @@
     var face = document.getElementById("agent-hero-face");
     var state = document.getElementById("agent-state");
     if (!current || current.type !== "specialist") return;
-    var color = document.getElementById("edit-color").value || current.color || "#38bdf8";
+    var color = (document.getElementById("edit-color") || {}).value || current.color || "#38bdf8";
     applyTheme(color);
-    if (face && typeof buddySvg === "function") face.innerHTML = buddySvg({ ...current, color: color }, 52);
+    if (face && typeof buddySvg === "function") {
+      face.innerHTML = buddySvg({ id: current.id, color: color, name: current.name }, 68);
+      if (typeof attachBuddyLife === "function") attachBuddyLife();
+    }
     if (state) {
       var on = isActive(current);
       state.className = "agent-state " + (on ? "on" : "off");
@@ -33,7 +35,6 @@
     if (count && ta) count.textContent = String(ta.value || "").length + "/4000";
   }
 
-  var _open = window.openAgentSheet;
   if (typeof openAgentSheet === "function") {
     var orig = openAgentSheet;
     openAgentSheet = function () {
@@ -51,7 +52,6 @@
   var ta = document.getElementById("edit-instructions");
   if (ta) ta.addEventListener("input", paintHero);
 
-  var _openChat = window.openChat;
   if (typeof openChat === "function") {
     var oc = openChat;
     openChat = async function () {
