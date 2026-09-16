@@ -19,17 +19,10 @@ import urllib.request
 API_KEY = (os.environ.get("BROWSERBASE_API_KEY") or "").strip()
 PROJECT_ID = (os.environ.get("BROWSERBASE_PROJECT_ID") or "").strip()
 _API = "https://api.browserbase.com/v1"
-SESSION_SECONDS = 900  # 15 min: control de costo por minuto
-MAX_FREE_BROWSERS = 2  # plan gratis: 2 navegadores simultáneos (premium: 3)
-# Viewport FIJO y CONOCIDO: si no se especifica, Browserbase usa un tamaño
-# panorámico (2560x1440) que el visor letterboxea dentro de una pantalla
-# vertical de celular -> las coordenadas fraccionarias del cursor táctil
-# quedaban desalineadas con lo que se ve. Fijamos 16:9 y lo exponemos al
-# frontend para que dibuje su área táctil con la MISMA proporción exacta.
+SESSION_SECONDS = 900
+MAX_FREE_BROWSERS = 2
 VIEWPORT_W = 1600
 VIEWPORT_H = 900
-
-# {specialist_id: {"session": id, "viewer": url, "expires": iso}}
 _SESSIONS: dict[str, dict] = {}
 
 
@@ -42,7 +35,6 @@ class PremiumRequired(BrowserError):
 
 
 def _prune_and_count() -> int:
-    """Limpia sesiones muertas y devuelve cuántas hay RUNNING ahora."""
     alive = 0
     for key, st in list(_SESSIONS.items()):
         try:
@@ -114,14 +106,12 @@ def start(specialist_id: str, is_pro: bool = False) -> dict:
     cur = status(specialist_id)
     if cur.get("on"):
         return cur
-    # Plan gratis: máximo 3 navegadores simultáneos; el 4º es premium
     if not is_pro and _prune_and_count() >= MAX_FREE_BROWSERS:
         raise PremiumRequired(
             f"Ya hay {MAX_FREE_BROWSERS} navegadores encendidos (límite del plan gratis). "
             "Para encender un 3er navegador activá la suscripción premium "
             "(US$30/mes) desde tu perfil."
         )
-    # keepAlive: sin esto, cerrar la última conexión CDP termina la sesión
     s = _api("/sessions", {"projectId": PROJECT_ID, "timeout": SESSION_SECONDS,
                            "keepAlive": True,
                            "browserSettings": {"viewport": {"width": VIEWPORT_W, "height": VIEWPORT_H}}})
@@ -170,7 +160,7 @@ def _valid_url(url: str) -> str:
     url = (url or "").strip()
     if not url:
         raise BrowserError("falta la URL")
-    if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", url):  # ya tiene esquema (https:, data:, about:, ...)
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", url):
         url = "https://" + url.lstrip("/")
     return url
 
@@ -182,43 +172,45 @@ def _safe_title(page) -> str:
         return ""
 
 
+def _snap(page, specialist_id: str) -> dict:
+    from app.store import DATA
+    shot_dir = DATA / "computers" / specialist_id / "screenshots"
+    shot_dir.mkdir(parents=True, exist_ok=True)
+    name = f"{int(__import__('time').time())}_{secrets.token_hex(4)}.png"
+    raw = page.screenshot(timeout=8000, type="jpeg", quality=52, animations="disabled")
+    (shot_dir / name).write_bytes(raw)
+    return {
+        "shot": f"/api/specialists/{specialist_id}/browser/shot/{name}",
+        "size": len(raw),
+    }
+
+
 def action(specialist_id: str, do: str, url: str = "",
             selector: str = "", text: str = "",
             x: float | None = None, y: float | None = None) -> dict:
-    """Ejecuta una acción en el Chrome real del especialista.
-
-    do: navigate | click | click_text | type | key | elements | scroll |
-        back | read | click_xy | type_focused | screenshot
-    x/y (click_xy) son fracciones 0..1 del viewport (cursor táctil:
-    el frontend nunca necesita saber el tamaño real de la página).
-    Cada acción abre y cierra su conexión CDP (sin estado entre hilos).
-    """
     connect = _connect_url(specialist_id)
     from playwright.sync_api import TimeoutError as PWTimeout, sync_playwright
 
     p = sync_playwright().start()
     try:
-        browser = p.chromium.connect_over_cdp(connect, timeout=45000)
+        browser = p.chromium.connect_over_cdp(connect, timeout=18000)
         try:
             ctx = browser.contexts[0]
             page = ctx.pages[0] if ctx.pages else ctx.new_page()
             out: dict = {"do": do}
             if do == "navigate":
-                page.goto(_valid_url(url), timeout=45000, wait_until="domcontentloaded")
+                page.goto(_valid_url(url), timeout=20000, wait_until="domcontentloaded")
+                out.update(_snap(page, specialist_id))
             elif do == "click":
                 if not selector:
                     raise BrowserError("falta el selector css del elemento")
                 page.click(selector, timeout=10000)
             elif do == "click_text":
-                # Click por TEXTO VISIBLE (para que el AGENTE use el navegador
-                # desde el chat sin conocer los selectores CSS de la página)
                 if not text:
                     raise BrowserError("falta el texto del elemento a clickear")
                 loc = page.get_by_text(text, exact=False).first
                 loc.click(timeout=10000)
             elif do == "elements":
-                # Lista de elementos clickeables con su texto -> el agente sabe
-                # qué puede clickear sin adivinar selectores
                 items = page.evaluate("""() => {
                   const sel = 'a, button, input, textarea, select, [role=button], [role=link], [onclick]';
                   const seen = new Set(); const out = [];
@@ -241,14 +233,10 @@ def action(specialist_id: str, do: str, url: str = "",
             elif do == "scroll":
                 page.mouse.wheel(0, -600 if (text or "").lower() == "up" else 600)
             elif do == "back":
-                page.go_back(timeout=15000)
+                page.go_back(timeout=12000)
             elif do == "click_xy":
                 if x is None or y is None:
                     raise BrowserError("faltan las coordenadas x,y")
-                # A prueba de balas: medir el viewport REAL de esta sesión en el
-                # momento del click. Las sesiones creadas antes del fix de viewport
-                # fijo siguen en 2560x1440; si asumiéramos VIEWPORT_W/H los clicks
-                # caerían en otro lado. evaluate() tarda milisegundos.
                 try:
                     real = page.evaluate(
                         "() => ({w: window.innerWidth, h: window.innerHeight})")
@@ -270,20 +258,11 @@ def action(specialist_id: str, do: str, url: str = "",
                     raise BrowserError("falta la tecla")
                 page.keyboard.press(text)
             elif do == "screenshot":
-                # Captura de lo que se ve ahora -> archivo PNG servido por URL
-                from app.store import DATA
-                shot_dir = DATA / "computers" / specialist_id / "screenshots"
-                shot_dir.mkdir(parents=True, exist_ok=True)
-                name = f"{int(__import__('time').time())}_{secrets.token_hex(4)}.png"
-                png = page.screenshot(timeout=20000)
-                (shot_dir / name).write_bytes(png)
-                out.update(shot=f"/api/specialists/{specialist_id}/browser/shot/{name}",
-                           size=len(png))
+                out.update(_snap(page, specialist_id))
             elif do == "read":
                 body = page.locator("body").inner_text(timeout=15000)
                 out.update(text=body[:4000])
             elif do == "read_selection":
-                # Texto seleccionado o valor del campo enfocado (para "Copiar al teléfono")
                 val = page.evaluate(
                     "() => { const s = window.getSelection && window.getSelection().toString(); "
                     "if (s) return s; const el = document.activeElement; "
