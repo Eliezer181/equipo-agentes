@@ -344,7 +344,7 @@ def api_chat(specialist_id: str, payload: ChatIn, request: Request):
             tool = computer.extract_tool(text)
             if not tool:
                 break
-            result = computer.execute_tool(specialist_id, spec.get("name"), tool)
+            result = computer.execute_tool(specialist_id, spec.get("name"), tool, is_pro=bool(user and user.get("is_pro")))
             messages.append({"role": "assistant", "content": text, "at": _now()})
             note = (
                 "RESULTADO DE TU COMPUTADORA:\n" + result + "\n\n"
@@ -580,17 +580,21 @@ def api_browser_status(specialist_id: str):
 
 
 @app.post("/api/specialists/{specialist_id}/browser")
-def api_browser(specialist_id: str, payload: BrowserActionIn):
+def api_browser(specialist_id: str, payload: BrowserActionIn, request: Request):
     """Enciende/apaga/maneja el Chrome real en la nube."""
     _spec_or_404(specialist_id)
     do = payload.do.strip().lower()
+    user = _current_user(request)
+    is_pro = bool(user and user.get("is_pro"))
     try:
         if do == "start":
-            return browsers.start(specialist_id)
+            return browsers.start(specialist_id, is_pro=is_pro)
         if do == "stop":
             return browsers.stop(specialist_id)
         return browsers.action(specialist_id, do, url=payload.url,
                                selector=payload.selector, text=payload.text)
+    except browsers.PremiumRequired as exc:
+        raise HTTPException(status_code=402, detail=str(exc)) from exc
     except browsers.BrowserError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

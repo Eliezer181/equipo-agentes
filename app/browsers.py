@@ -19,6 +19,7 @@ API_KEY = (os.environ.get("BROWSERBASE_API_KEY") or "").strip()
 PROJECT_ID = (os.environ.get("BROWSERBASE_PROJECT_ID") or "").strip()
 _API = "https://api.browserbase.com/v1"
 SESSION_SECONDS = 900  # 15 min: control de costo por minuto
+MAX_FREE_BROWSERS = 3  # plan gratis: 3 navegadores simultáneos
 
 # {specialist_id: {"session": id, "viewer": url, "expires": iso}}
 _SESSIONS: dict[str, dict] = {}
@@ -26,6 +27,25 @@ _SESSIONS: dict[str, dict] = {}
 
 class BrowserError(Exception):
     """Error amigable del navegador del agente."""
+
+
+class PremiumRequired(BrowserError):
+    """Se necesita suscripción premium para más navegadores."""
+
+
+def _prune_and_count() -> int:
+    """Limpia sesiones muertas y devuelve cuántas hay RUNNING ahora."""
+    alive = 0
+    for key, st in list(_SESSIONS.items()):
+        try:
+            s = _api(f"/sessions/{st['session']}")
+        except BrowserError:
+            s = None
+        if s and s.get("status") == "RUNNING":
+            alive += 1
+        else:
+            _SESSIONS.pop(key, None)
+    return alive
 
 
 def configured() -> bool:
@@ -78,12 +98,19 @@ def status(specialist_id: str) -> dict:
     }
 
 
-def start(specialist_id: str) -> dict:
+def start(specialist_id: str, is_pro: bool = False) -> dict:
     if not configured():
         raise BrowserError("Browserbase no está configurado (faltan los secretos)")
     cur = status(specialist_id)
     if cur.get("on"):
         return cur
+    # Plan gratis: máximo 3 navegadores simultáneos; el 4º es premium
+    if not is_pro and _prune_and_count() >= MAX_FREE_BROWSERS:
+        raise PremiumRequired(
+            f"Ya hay {MAX_FREE_BROWSERS} navegadores encendidos (límite del plan gratis). "
+            "Para encender un 4º navegador activá la suscripción premium "
+            "(US$30/mes) desde tu perfil."
+        )
     # keepAlive: sin esto, cerrar la última conexión CDP termina la sesión
     s = _api("/sessions", {"projectId": PROJECT_ID, "timeout": SESSION_SECONDS,
                            "keepAlive": True})
@@ -109,7 +136,7 @@ def stop(specialist_id: str) -> dict:
     st = _SESSIONS.pop(specialist_id, None)
     if st:
         try:
-            _api(f"/sessions/{st['session']}", {"status": "REQUEST_RESOLVED"}, method="PUT")
+            _api(f"/sessions/{st['session']}", {"status": "REQUEST_RELEASE"})
         except Exception:
             pass
     return {"on": False, "configured": configured()}

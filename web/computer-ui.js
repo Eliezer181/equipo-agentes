@@ -238,7 +238,14 @@
       pushTerm(["\u2192 navegador en vivo listo"]);
     } catch (err) {
       chromeBtn.textContent = "\u26a1 Chrome real";
-      browserEl.innerHTML = "<p class=\"desk-empty\">No se pudo encender: " + escapeHtml(err.message) + "</p>";
+      if (err.message.indexOf("premium") !== -1) {
+        browserEl.innerHTML =
+          "<div class=\"desk-premium\"><b>\u26a1 L\u00edmite del plan gratis alcanzado</b>" +
+          "<p>Ya hay 3 navegadores encendidos. Para encender un 4\u00ba, " +
+          "activ\u00e1 la suscripci\u00f3n premium (US$30/mes) desde tu perfil.</p></div>";
+      } else {
+        browserEl.innerHTML = "<p class=\"desk-empty\">No se pudo encender: " + escapeHtml(err.message) + "</p>";
+      }
     }
   });
 

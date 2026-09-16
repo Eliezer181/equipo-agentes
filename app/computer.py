@@ -285,14 +285,14 @@ def strip_tools(text: str) -> str:
     return (_TOOL_BLOCK.sub("", text or "")).strip()
 
 
-def _browser_tool(agent_id: str, tool: dict) -> str:
+def _browser_tool(agent_id: str, tool: dict, is_pro: bool = False) -> str:
     """Herramienta del chat: maneja el Chrome real en la nube."""
     from app import browsers
 
     act = str(tool.get("action") or "navigate").strip().lower()
     try:
         if act == "start":
-            st = browsers.start(agent_id)
+            st = browsers.start(agent_id, is_pro=is_pro)
             return (
                 "navegador real ENCENDIDO en la nube (el usuario lo ve en vivo "
                 "en su escritorio). Usá navigate/click/type/read para manejarlo. "
@@ -321,7 +321,7 @@ def _browser_tool(agent_id: str, tool: dict) -> str:
         return f"error de navegador: {exc}"
 
 
-def execute_tool(agent_id: str, agent_name: str | None, tool: dict) -> str:
+def execute_tool(agent_id: str, agent_name: str | None, tool: dict, is_pro: bool = False) -> str:
     """Ejecuta una herramienta y devuelve el resultado como texto para el LLM."""
     kind = (tool or {}).get("tool")
     try:
@@ -354,7 +354,7 @@ def execute_tool(agent_id: str, agent_name: str | None, tool: dict) -> str:
                 body = body[:6_000] + "\n… (truncado)"
             return f"contenido de {tool.get('name')}:\n{body}"
         if kind == "browser":
-            return _browser_tool(agent_id, tool)
+            return _browser_tool(agent_id, tool, is_pro=is_pro)
         if kind == "fetch":
             r = fetch(str(tool.get("url") or ""))
             head = f"{r['title'] or '(sin título)'} — {r['url']}\n\n"
