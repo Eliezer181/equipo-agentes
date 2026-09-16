@@ -28,7 +28,7 @@
   }
 
   window.groupBubble = function (m) {
-    const quote = m.reply_to_name ? '<div class="quote">↪ ' + escapeHtml(m.reply_to_name) + '</div>' : "";
+    const quote = m.reply_to_name ? '<div class="quote">↩ ' + escapeHtml(m.reply_to_name) + '</div>' : "";
     if (m.role === "user") {
       return '<div class="bubble user swipeable" data-sender="' + escapeHtml((current && current.leader) || "vos") + '">' + quote + '<div class="sender user-sender">' + escapeHtml((current && current.leader) || "Líder") + '</div>' + rich(m.content) + '</div>';
     }
@@ -202,29 +202,42 @@
     var bubble = e.target.closest(".bubble.swipeable");
     if (!bubble || !current) return;
     var t = e.changedTouches[0];
-    swipe = { bubble: bubble, x: t.clientX, y: t.clientY, dx: 0 };
+    swipe = { bubble: bubble, x: t.clientX, y: t.clientY, dx: 0, locked: false };
   }, { passive: true });
   thread.addEventListener("touchmove", function (e) {
     if (!swipe) return;
     var t = e.changedTouches[0];
     var dx = t.clientX - swipe.x;
     var dy = t.clientY - swipe.y;
-    if (Math.abs(dy) > Math.abs(dx) + 8) {
-      swipe.bubble.style.transform = "";
-      swipe = null;
-      return;
+    if (!swipe.locked) {
+      if (Math.abs(dy) > Math.abs(dx) + 8) {
+        swipe.bubble.style.transform = "";
+        swipe = null;
+        return;
+      }
+      if (Math.abs(dx) > 10) swipe.locked = true;
     }
+    if (swipe && swipe.locked && e.cancelable) e.preventDefault();
+    if (!swipe) return;
     swipe.dx = dx;
-    swipe.bubble.style.transform = "translateX(" + Math.max(0, Math.min(80, dx)) + "px)";
-  }, { passive: true });
-  thread.addEventListener("touchend", function () {
+    var shift = Math.max(-72, Math.min(72, dx));
+    swipe.bubble.style.transition = "none";
+    swipe.bubble.style.transform = "translateX(" + shift + "px)";
+  }, { passive: false });
+  function endSwipe() {
     if (!swipe) return;
     var bubble = swipe.bubble;
     var dx = swipe.dx;
-    bubble.style.transform = "";
     swipe = null;
-    if (dx > 44) setReply(idFromBubble(bubble), bubble.getAttribute("data-sender"), bubble.textContent);
-  }, { passive: true });
+    bubble.style.transition = "transform .18s ease";
+    bubble.style.transform = "";
+    if (Math.abs(dx) > 42) {
+      var preview = (bubble.innerText || bubble.textContent || "").replace(/\s+/g, " ").trim();
+      setReply(idFromBubble(bubble), bubble.getAttribute("data-sender"), preview);
+    }
+  }
+  thread.addEventListener("touchend", endSwipe, { passive: true });
+  thread.addEventListener("touchcancel", endSwipe, { passive: true });
 
   var form = document.getElementById("composer");
   form.addEventListener("submit", function () {
@@ -263,7 +276,7 @@
     if (current.type === "group" && replyTo) body.reply_to = replyTo;
     thread.insertAdjacentHTML("beforeend", current.type === "group"
       ? window.groupBubble({ role: "user", content: message, reply_to_name: replyName })
-      : '<div class="bubble user swipeable">' + (replyName ? '<div class="quote">↪ ' + escapeHtml(replyName) + '</div>' : '') + escapeHtml(message) + '</div>');
+      : '<div class="bubble user swipeable">' + (replyName ? '<div class="quote">↩ ' + escapeHtml(replyName) + '</div>' : '') + escapeHtml(message) + '</div>');
     if (current.type === "group") {
       thread.insertAdjacentHTML("beforeend", '<div class="bubble assistant thinking" id="thinking"><div class="sender">Escribiendo…</div></div>');
     }
