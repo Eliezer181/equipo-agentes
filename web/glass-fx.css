@@ -8,6 +8,8 @@
 .composer button[type=submit],
 .agent-close{
   position:relative;
+  isolation:isolate;
+  overflow:hidden!important;
   background:
     linear-gradient(165deg, rgba(255,255,255,.34) 0%, rgba(255,255,255,.08) 28%, rgba(255,255,255,.02) 52%, rgba(255,255,255,.12) 100%),
     rgba(16,18,24,.38)!important;
@@ -19,38 +21,48 @@
   backdrop-filter:blur(26px) saturate(190%)!important;
   -webkit-backdrop-filter:blur(26px) saturate(190%)!important;
   color:#f5f5f7!important;
+  background-clip:padding-box!important;
+}
+.composer input,
+.composer button[type=submit]{
+  border-radius:999px!important;
 }
 .composer input{
   background-image:
-    radial-gradient(120% 80% at calc(50% + var(--gx)) calc(0% + var(--gy)), rgba(255,255,255,.45), transparent 42%),
+    radial-gradient(90% 70% at calc(50% + var(--gx)) calc(8% + var(--gy)), rgba(255,255,255,.4), transparent 46%),
     conic-gradient(from var(--ga) at calc(50% + var(--gx)) calc(30% + var(--gy)),
       rgba(125,211,252,.0),
-      rgba(125,211,252,.32),
-      rgba(196,181,253,.28),
-      rgba(251,191,36,.18),
-      rgba(52,211,153,.16),
-      rgba(125,211,252,.0) 42%),
-    linear-gradient(180deg, rgba(255,255,255,.16), rgba(8,10,16,.28))!important;
-  background-color:rgba(16,18,24,.32)!important;
+      rgba(125,211,252,.28),
+      rgba(196,181,253,.22),
+      rgba(251,191,36,.14),
+      rgba(52,211,153,.14),
+      rgba(125,211,252,.0) 38%),
+    linear-gradient(180deg, rgba(255,255,255,.14), rgba(8,10,16,.28))!important;
 }
 #btn-attach,
 .composer button[type=submit],
 .agent-close{
-  overflow:hidden;
+  z-index:1;
 }
 #btn-attach::after,
 .composer button[type=submit]::after,
 .agent-close::after{
-  content:"";position:absolute;inset:-60%;
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
   background:conic-gradient(from var(--ga),
-    transparent 0 8%,
-    rgba(125,211,252,.4),
-    rgba(196,181,253,.32),
-    rgba(251,191,36,.22),
-    rgba(52,211,153,.2),
-    transparent 38%);
+    transparent 0 12%,
+    rgba(125,211,252,.35),
+    rgba(196,181,253,.26),
+    rgba(251,191,36,.16),
+    rgba(52,211,153,.16),
+    transparent 40%);
   transform:translate3d(var(--gx),var(--gy),0);
-  mix-blend-mode:screen;pointer-events:none;opacity:.85;
+  mix-blend-mode:screen;
+  pointer-events:none;
+  opacity:.75;
+  clip-path:inset(0 round 999px);
 }
 .composer button[type=submit]{
   color:#fff!important;
@@ -58,7 +70,11 @@
 }
 #btn-attach{
   width:40px;height:40px;border-radius:50%!important;
-  font-size:22px;z-index:1;
+  font-size:22px;
+}
+#btn-attach::after,
+.agent-close::after{
+  clip-path:circle(50% at 50% 50%);
 }
 .agent-close{
   position:absolute!important;
@@ -68,4 +84,12 @@
   background:rgba(16,18,24,.35)!important;
   color:#f5f5f7!important;
   z-index:6!important;
+}
+.modal{z-index:60!important}
+#app:has(#agent-modal:not(.hidden)) #btn-attach,
+#app:has(#agent-modal:not(.hidden)) #attach-chip,
+#app:has(#info-modal:not(.hidden)) #btn-attach,
+#app:has(#modal:not(.hidden)) #btn-attach,
+#app:has(#group-modal:not(.hidden)) #btn-attach{
+  display:none!important;
 }
