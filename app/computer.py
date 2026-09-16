@@ -209,6 +209,36 @@ def fetch(url: str) -> dict:
     return {"url": url, "title": title, "content_type": ctype, "text": text}
 
 
+def proxy_page(url: str) -> tuple[bytes, str]:
+    """Trae una página COMPLETA (HTML crudo) para renderizar en el navegador
+    del escritorio. Inyecta <base href> para que CSS/imágenes relativos
+    carguen desde el sitio original. Devuelve (bytes, content_type)."""
+    url = (url or "").strip()
+    if not url.startswith(("http://", "https://")):
+        raise ComputerError("solo URLs http(s)")
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+            ctype = resp.headers.get("content-type", "text/html")
+            raw = resp.read(2_000_000)
+    except Exception as exc:
+        raise ComputerError(f"no se pudo abrir: {exc}") from exc
+    low = ctype.lower()
+    if "html" in low or raw[:200].lstrip().lower().startswith((b"<!doctype", b"<html")):
+        base_tag = f'<base href="{url}">'.encode("utf-8")
+        m = re.search(rb"<head[^>]*>", raw, re.IGNORECASE)
+        if m:
+            insert_at = m.end()
+            raw = raw[:insert_at] + base_tag + raw[insert_at:]
+        else:
+            raw = b"<head>" + base_tag + b"</head>" + raw
+        ctype = "text/html; charset=utf-8"
+    return raw, ctype
+
+
 # ---------------------------------------------------------------------------
 # Protocolo de herramientas para el chat del agente
 # ---------------------------------------------------------------------------

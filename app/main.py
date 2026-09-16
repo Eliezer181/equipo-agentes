@@ -131,12 +131,12 @@ def speakers_for(group: dict, payload: ChatIn) -> list[dict]:
 
 @app.get("/health")
 def health():
-    return {"ok": True, "release": "v12"}
+    return {"ok": True, "release": "v13"}
 
 
 @app.get("/api/version")
 def version():
-    return {"release": "v12", "gemini": _using_gemini(), "models": _models(), "computer": True}
+    return {"release": "v13", "gemini": _using_gemini(), "models": _models(), "computer": True}
 
 
 @app.get("/")
@@ -561,6 +561,20 @@ def api_computer_fetch(specialist_id: str, payload: ComputerFetchIn):
     except computer.ComputerError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
+@app.get("/api/specialists/{specialist_id}/computer/proxy")
+def api_computer_proxy(specialist_id: str, url: str):
+    """Navegador del escritorio: sirve la página completa para el iframe."""
+    _spec_or_404(specialist_id)
+    try:
+        raw, ctype = computer.proxy_page(url)
+        return Response(content=raw, media_type=ctype)
+    except computer.ComputerError as exc:
+        return Response(
+            content=f"<!doctype html><p style='font-family:sans-serif;padding:20px;color:#8e8e93'>{exc}</p>",
+            media_type="text/html; charset=utf-8",
+            status_code=400,
+        )
 
 @app.get("/api/groups")
 def api_groups_list():

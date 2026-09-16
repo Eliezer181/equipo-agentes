@@ -62,3 +62,7 @@
 .desk-page span{color:#8e8e93;font-size:12px}
 .desk-page hr{border:0;border-top:1px solid #2c2c2e;margin:10px 0}
 .desk-page p{white-space:pre-wrap;word-break:break-word;color:#d4d4d8}
+
+/* Navegador real: iframe a pantalla completa */
+.desk-browser.browsing{overflow:hidden;padding:0;display:flex}
+.desk-frame{flex:1;width:100%;height:100%;border:0;background:#fff}

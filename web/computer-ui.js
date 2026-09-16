@@ -191,22 +191,16 @@
     e.preventDefault();
     var url = ((document.getElementById("desk-url") || {}).value || "").trim();
     if (!url) return;
-    browserEl.innerHTML = "<p class=\"desk-empty\">Abriendo " + escapeHtml(url) + "…</p>";
+    if (!/^https?:\/\//i.test(url)) url = "https://" + url.replace(/^\/+/, "");
+    browserEl.innerHTML = "<p class=\"desk-empty\">Cargando " + escapeHtml(url) + "…</p>";
     showApp("browser");
-    try {
-      var page = await api("/api/specialists/" + encodeURIComponent(agentId) + "/computer/fetch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url })
-      });
-      pushTerm(["$ open " + url, "→ " + (page.title || url)]);
-      browserEl.innerHTML =
-        "<div class=\"desk-page\"><b>" + escapeHtml(page.title || "(sin título)") + "</b><br/>" +
-        "<span>" + escapeHtml(page.url) + "</span><hr/><p>" +
-        escapeHtml((page.text || "").slice(0, 4000)) + "</p></div>";
-    } catch (err) {
-      browserEl.innerHTML = "<p class=\"desk-empty\">No se pudo abrir: " + escapeHtml(err.message) + "</p>";
-    }
+    var proxy = "/api/specialists/" + encodeURIComponent(agentId) +
+      "/computer/proxy?url=" + encodeURIComponent(url);
+    pushTerm(["$ open " + url]);
+    browserEl.classList.add("browsing");
+    browserEl.innerHTML =
+      "<iframe class=\"desk-frame\" src=\"" + proxy + "\" " +
+      "sandbox=\"\" referrerpolicy=\"no-referrer\" title=\"navegador del agente\"></iframe>";
   });
 
   var termForm = document.getElementById("desk-term-form");
