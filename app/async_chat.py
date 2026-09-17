@@ -4,6 +4,7 @@ import threading
 from copy import deepcopy
 
 from fastapi import HTTPException
+from starlette.routing import Route
 
 from app.progress import set_live
 from app.store import get_specialist, load_messages, save_messages
@@ -74,48 +75,56 @@ def _run_turn(specialist_id: str, user_text: str, provider: str | None, is_pro: 
             _BUSY.discard(specialist_id)
 
 
-def install() -> None:
+def handle_chat(specialist_id: str, payload, request):
     from app import main, users_auth
-
-    def api_chat(specialist_id: str, payload, request):
-        user = main._current_user(request)
-        if user and users_auth.credits_exhausted(user):
-            raise HTTPException(
-                status_code=402,
-                detail={"error_code": "credits_exhausted", "message": "Se agotaron tus créditos"},
-            )
-        spec = get_specialist(specialist_id)
-        if not spec:
-            raise HTTPException(status_code=404, detail="No existe ese especialista")
-        user_text = (payload.message or "").strip()
-        if not user_text:
-            raise HTTPException(status_code=400, detail="Mensaje vacío")
-        messages = load_messages(specialist_id)
-        messages.append({"role": "user", "content": user_text, "at": main._now()})
-        save_messages(specialist_id, messages)
-        set_live(specialist_id, "Razonando…")
-        with _GUARD:
-            already = specialist_id in _BUSY
-            _BUSY.add(specialist_id)
-        if already:
-            return {"ok": True, "pending": True, "messages": messages, "provider": "queued"}
-        args = (
-            specialist_id,
-            user_text,
-            getattr(payload, "provider", None),
-            bool(user and user.get("is_pro")),
-            str(request.base_url).rstrip("/"),
-            deepcopy(user) if user else None,
+    user = main._current_user(request)
+    if user and users_auth.credits_exhausted(user):
+        raise HTTPException(
+            status_code=402,
+            detail={"error_code": "credits_exhausted", "message": "Se agotaron tus créditos"},
         )
-        threading.Thread(target=_run_turn, args=args, daemon=True).start()
-        return {"ok": True, "pending": True, "messages": messages, "provider": "working"}
+    spec = get_specialist(specialist_id)
+    if not spec:
+        raise HTTPException(status_code=404, detail="No existe ese especialista")
+    user_text = (payload.message or "").strip()
+    if not user_text:
+        raise HTTPException(status_code=400, detail="Mensaje vacío")
+    messages = load_messages(specialist_id)
+    messages.append({"role": "user", "content": user_text, "at": main._now()})
+    save_messages(specialist_id, messages)
+    set_live(specialist_id, "Razonando…")
+    with _GUARD:
+        already = specialist_id in _BUSY
+        _BUSY.add(specialist_id)
+    if already:
+        return {"ok": True, "pending": True, "messages": messages, "provider": "queued"}
+    args = (
+        specialist_id,
+        user_text,
+        getattr(payload, "provider", None),
+        bool(user and user.get("is_pro")),
+        str(request.base_url).rstrip("/"),
+        deepcopy(user) if user else None,
+    )
+    threading.Thread(target=_run_turn, args=args, daemon=True).start()
+    return {"ok": True, "pending": True, "messages": messages, "provider": "working"}
 
-    main.api_chat = api_chat
-    for route in main.app.routes:
-        if getattr(route, "path", "") == "/api/specialists/{specialist_id}/chat" and "POST" in getattr(route, "methods", set()):
-            route.endpoint = api_chat
-            if hasattr(route, "dependant"):
-                try:
-                    route.dependant.call = api_chat
-                except Exception:
-                    pass
+
+def install() -> None:
+    from app.main import app, api_chat as old
+    from fastapi.routing import APIRoute
+    app.api_chat = handle_chat
+    for route in list(app.router.routes):
+        path = getattr(route, "path", "")
+        methods = getattr(route, "methods", set()) or set()
+        if path == "/api/specialists/{specialist_id}/chat" and "POST" in methods and isinstance(route, APIRoute):
+            new_route = APIRoute(
+                path,
+                handle_chat,
+                methods=["POST"],
+                name=route.name,
+                response_model=getattr(route, "response_model", None),
+            )
+            app.router.routes.remove(route)
+            app.router.routes.append(new_route)
+            break
