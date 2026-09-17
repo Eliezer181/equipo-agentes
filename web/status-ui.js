@@ -41,13 +41,12 @@
     if (!id) return;
     try {
       var res = await fetch("/api/specialists/" + encodeURIComponent(id) + "/computer/files/" + encodeURIComponent(".live.json"));
-      if (!res.ok) return;
-      var data = await res.json();
-      var parsed = {};
-      try { parsed = JSON.parse(data.body || data.text || ""); } catch (_) {}
-      if (!parsed.text) return;
-      if (parsed.at && parsed.at + 0.2 < startedAt) return;
-      setText(parsed.text);
+      if (res.ok) {
+        var data = await res.json();
+        var parsed = {};
+        try { parsed = JSON.parse(data.body || data.text || ""); } catch (_) {}
+        if (parsed.text && !(parsed.at && parsed.at + 0.2 < startedAt)) setText(parsed.text);
+      }
     } catch (_) {}
   }
   function startThink() {
@@ -58,7 +57,7 @@
     clearInterval(poll);
     clearTimeout(kill);
     poll = setInterval(tick, 450);
-    kill = setTimeout(stopThink, 45000);
+    kill = setTimeout(stopThink, 90000);
   }
   function stopThink() {
     clearInterval(poll);
@@ -67,6 +66,29 @@
     var el = document.getElementById("think-bar");
     if (el) el.classList.add("hidden");
     document.querySelectorAll("#thread .bubble.thinking").forEach(function (n) { n.remove(); });
+  }
+  function watchAgent(id, userCount) {
+    var n = 0;
+    var iv = setInterval(async function () {
+      n += 1;
+      try {
+        var msgs = await (await fetch("/api/specialists/" + encodeURIComponent(id) + "/messages")).json();
+        var visible = (msgs || []).filter(function (m) { return !isInternal(m); });
+        var last = visible[visible.length - 1];
+        if (last && last.role === "assistant") {
+          if (typeof renderThread === "function") renderThread(msgs);
+          stopThink();
+          clearInterval(iv);
+          return;
+        }
+        if (visible.length > userCount && last && last.role === "assistant") {
+          if (typeof renderThread === "function") renderThread(msgs);
+          stopThink();
+          clearInterval(iv);
+        }
+      } catch (_) {}
+      if (n > 90) { clearInterval(iv); stopThink(); }
+    }, 900);
   }
   var form = document.getElementById("composer");
   if (form) form.addEventListener("submit", function () { startThink(); }, true);
@@ -85,13 +107,27 @@
       } catch (_) {}
     }
     var p = origFetch.apply(this, arguments);
+    if (/\/specialists\/[^/]+\/chat$/.test(url)) {
+      return p.then(function (res) {
+        var copy = res.clone();
+        copy.json().then(function (data) {
+          if (data && data.pending) {
+            var id = (url.match(/specialists\/([^/]+)\/chat/) || [])[1];
+            var count = (data.messages || []).length;
+            if (id) watchAgent(id, count);
+          } else {
+            stopThink();
+          }
+        }).catch(function () { stopThink(); });
+        return res;
+      });
+    }
     if (/\/chat$/.test(url)) return p.finally(stopThink);
     return p;
   };
   function syncChrome() {
     var at = document.getElementById("btn-at");
     if (at) at.classList.toggle("hidden", !(current && current.type === "group"));
-    stopThink();
   }
   if (typeof openChat === "function") {
     var oc = openChat;
