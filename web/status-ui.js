@@ -3,6 +3,7 @@
     if (!m) return false;
     if (m.hidden) return true;
     var c = String(m.content || "");
+    if (!c.trim()) return true;
     if (c.indexOf("RESULTADO DE TU COMPUTADORA") === 0) return true;
     if (c.indexOf("```json") !== -1 && c.indexOf('"tool"') !== -1) return true;
     if (c.indexOf('"tool": "browser"') !== -1 || c.indexOf('"tool":"browser"') !== -1) return true;
@@ -26,6 +27,7 @@
     return el;
   }
   var poll = null;
+  var kill = null;
   var startedAt = 0;
   function agentId() {
     return current && current.type === "specialist" ? current.id : "";
@@ -54,13 +56,17 @@
     setText("Razonando…");
     el.classList.remove("hidden");
     clearInterval(poll);
+    clearTimeout(kill);
     poll = setInterval(tick, 450);
+    kill = setTimeout(stopThink, 45000);
   }
   function stopThink() {
     clearInterval(poll);
+    clearTimeout(kill);
     poll = null;
     var el = document.getElementById("think-bar");
     if (el) el.classList.add("hidden");
+    document.querySelectorAll("#thread .bubble.thinking").forEach(function (n) { n.remove(); });
   }
   var form = document.getElementById("composer");
   if (form) form.addEventListener("submit", function () { startThink(); }, true);
@@ -85,6 +91,7 @@
   function syncChrome() {
     var at = document.getElementById("btn-at");
     if (at) at.classList.toggle("hidden", !(current && current.type === "group"));
+    stopThink();
   }
   if (typeof openChat === "function") {
     var oc = openChat;
