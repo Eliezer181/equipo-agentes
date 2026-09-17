@@ -143,6 +143,12 @@ def install() -> None:
     except Exception:
         pass
 
+    try:
+        from app import async_chat
+        async_chat.install()
+    except Exception:
+        pass
+
     if not getattr(computer.extract_tool, "_conn_wrapped", False):
         orig_ex = computer.extract_tool
 
