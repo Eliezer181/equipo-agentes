@@ -67,7 +67,7 @@
     if (el) el.classList.add("hidden");
     document.querySelectorAll("#thread .bubble.thinking").forEach(function (n) { n.remove(); });
   }
-  function watchAgent(id, userCount) {
+  function watchAgent(id) {
     var n = 0;
     var iv = setInterval(async function () {
       n += 1;
@@ -76,12 +76,6 @@
         var visible = (msgs || []).filter(function (m) { return !isInternal(m); });
         var last = visible[visible.length - 1];
         if (last && last.role === "assistant") {
-          if (typeof renderThread === "function") renderThread(msgs);
-          stopThink();
-          clearInterval(iv);
-          return;
-        }
-        if (visible.length > userCount && last && last.role === "assistant") {
           if (typeof renderThread === "function") renderThread(msgs);
           stopThink();
           clearInterval(iv);
@@ -96,7 +90,12 @@
   window.fetch = function () {
     var url = String(arguments[0] || "");
     var opts = arguments[1];
-    if (window.__pendingShot && /\/chat$/.test(url) && opts && opts.body) {
+    var m = url.match(/\/api\/specialists\/([^/]+)\/chat$/);
+    if (m) {
+      url = "/api/agent-chat/" + m[1];
+      arguments[0] = url;
+    }
+    if (window.__pendingShot && /agent-chat|\/chat$/.test(url) && opts && opts.body) {
       try {
         var body = JSON.parse(opts.body);
         body.message = "![foto](" + window.__pendingShot + ")\n" + (body.message || "");
@@ -107,14 +106,13 @@
       } catch (_) {}
     }
     var p = origFetch.apply(this, arguments);
-    if (/\/specialists\/[^/]+\/chat$/.test(url)) {
+    if (/\/api\/agent-chat\/[^/]+$/.test(url)) {
       return p.then(function (res) {
         var copy = res.clone();
         copy.json().then(function (data) {
           if (data && data.pending) {
-            var id = (url.match(/specialists\/([^/]+)\/chat/) || [])[1];
-            var count = (data.messages || []).length;
-            if (id) watchAgent(id, count);
+            var id = (url.match(/agent-chat\/([^/]+)/) || [])[1];
+            if (id) watchAgent(id);
           } else {
             stopThink();
           }
