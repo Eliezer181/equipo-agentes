@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import threading
-from copy import deepcopy
 from collections import defaultdict, deque
+from copy import deepcopy
+from typing import Any
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from fastapi.routing import APIRoute
 
 from app.progress import set_live
@@ -28,11 +29,6 @@ def _kick(aid: str) -> None:
 
 def _worker(aid: str, job: tuple) -> None:
     try:
-        n = 0
-        with _GUARD:
-            n = len(_QUEUES[aid])
-        if n:
-            set_live(aid, f"En esta pantalla: trabajando + {n} en cola")
         _run_turn(*job)
     finally:
         with _GUARD:
@@ -101,7 +97,7 @@ def _run_turn(specialist_id: str, user_text: str, provider: str | None, is_pro: 
             pass
 
 
-def handle_chat(specialist_id: str, payload, request):
+def handle_chat(specialist_id: str, payload: Any, request: Request):
     from app import main, users_auth
     user = main._current_user(request)
     if user and users_auth.credits_exhausted(user):
@@ -112,7 +108,7 @@ def handle_chat(specialist_id: str, payload, request):
     spec = get_specialist(specialist_id)
     if not spec:
         raise HTTPException(status_code=404, detail="No existe ese especialista")
-    user_text = (payload.message or "").strip()
+    user_text = str(getattr(payload, "message", None) or (payload.get("message") if isinstance(payload, dict) else "") or "").strip()
     if not user_text:
         raise HTTPException(status_code=400, detail="Mensaje vacío")
     messages = load_messages(specialist_id)
@@ -140,12 +136,16 @@ def handle_chat(specialist_id: str, payload, request):
 
 
 def install() -> None:
-    from app.main import app
+    from app.main import ChatIn, app
+
+    def api_chat(specialist_id: str, payload: ChatIn, request: Request):
+        return handle_chat(specialist_id, payload, request)
+
     for route in list(app.router.routes):
         path = getattr(route, "path", "")
         methods = getattr(route, "methods", set()) or set()
         if path == "/api/specialists/{specialist_id}/chat" and "POST" in methods and isinstance(route, APIRoute):
-            new_route = APIRoute(path, handle_chat, methods=["POST"], name=route.name)
+            new_route = APIRoute(path, api_chat, methods=["POST"], name=route.name)
             app.router.routes.remove(route)
             app.router.routes.append(new_route)
             break
