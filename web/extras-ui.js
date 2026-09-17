@@ -144,4 +144,8 @@
     await fetch("/api/auth/logout", { method: "POST" });
     location.href = "/landing";
   };
+
+  var s = document.createElement("script");
+  s.src = "/static/agent-actions.js?v=1";
+  document.body.appendChild(s);
 })();
