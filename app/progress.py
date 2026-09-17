@@ -112,7 +112,24 @@ def _latest_shot(agent_id: str, base_url: str = "") -> str:
 
 
 def install() -> None:
-    from app import computer, connectors
+    from app import computer, connectors, intent_browse
+    try:
+        from app import llm
+        if not getattr(llm.reply, "_intent_wrapped", False):
+            _reply = llm.reply
+            def reply(instructions, history, **kw):
+                intent_browse.remember(history)
+                return _reply(instructions, history, **kw)
+            reply._intent_wrapped = True
+            llm.reply = reply
+    except Exception:
+        pass
+    extra = (
+        "\nSi el usuario pega una URL y dice abre, captura, computadora o entra, "
+        "NO preguntes. Navegá esa URL ya. La captura viene con el navigate."
+    )
+    if extra not in (computer.TOOL_HINT or ""):
+        computer.TOOL_HINT = (computer.TOOL_HINT or "") + extra
     if _SHOT_HINT not in (computer.TOOL_HINT or ""):
         computer.TOOL_HINT = (computer.TOOL_HINT or "") + _SHOT_HINT
     if connectors.HINT not in (computer.TOOL_HINT or ""):
@@ -139,9 +156,9 @@ def install() -> None:
                     data = json.loads(m.group(1))
                 except Exception:
                     continue
-                if isinstance(data, dict) and data.get("tool") in {"github", "gmail"}:
+                if isinstance(data, dict) and data.get("tool") in {"github", "gmail", "browser"}:
                     return data
-            return None
+            return intent_browse.from_user(text)
 
         extract_tool._conn_wrapped = True
         computer.extract_tool = extract_tool
