@@ -9,6 +9,10 @@ def _install_progress() -> None:
         router_llm.install()
     except Exception:
         pass
+    try:
+        from app import chat_routes  # noqa: F401
+    except Exception:
+        pass
 
 
 _install_progress()
