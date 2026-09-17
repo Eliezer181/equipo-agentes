@@ -4,6 +4,11 @@ def _install_progress() -> None:
         progress.install()
     except Exception:
         pass
+    try:
+        from app import router_llm
+        router_llm.install()
+    except Exception:
+        pass
 
 
 _install_progress()
