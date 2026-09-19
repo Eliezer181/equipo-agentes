@@ -11,6 +11,7 @@ LAST_PROVIDER: ContextVar[str] = ContextVar("last_llm_provider", default="gemini
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 XAI_URL = "https://api.x.ai/v1"
+DEEPHAT_URL = "https://router.huggingface.co/v1"
 GEMINI_MODELS = (
     "gemini-3.8-flash",
     "gemini-3.5-flash",
@@ -63,6 +64,26 @@ def _models() -> list[str]:
     return out
 
 
+def _deephat_key() -> str:
+    return os.getenv("DEEPHAT_API_KEY", "").strip()
+
+
+def _deephat_client() -> OpenAI:
+    key = _deephat_key()
+    if not key:
+        raise RuntimeError("Falta DEEPHAT_API_KEY (token de HuggingFace: hf_...) ")
+    return OpenAI(api_key=key, base_url=os.getenv("DEEPHAT_BASE_URL", DEEPHAT_URL))
+
+
+def _deephat_reply(messages: list[dict], temperature: float = 0.4) -> str:
+    model = os.getenv("DEEPHAT_MODEL", "DeepHat/DeepHat-V1-7B").strip()
+    api = _deephat_client()
+    response = api.chat.completions.create(
+        model=model, messages=messages, temperature=temperature
+    )
+    return (response.choices[0].message.content or "").strip()
+
+
 def resolve_provider(explicit: str | None = None) -> str:
     """Base44 first when enabled; Gemini otherwise or when explicitly requested.
 
@@ -72,6 +93,13 @@ def resolve_provider(explicit: str | None = None) -> str:
     raw = (explicit if explicit is not None else os.getenv("LLM_PROVIDER", "")).strip().lower()
     if raw in {"gemini", "google"}:
         return "gemini"
+    if raw in {"deephat", "deep-hat", "hat"}:
+        if not _deephat_key():
+            raise RuntimeError(
+                "Deep Hat pedido pero falta DEEPHAT_API_KEY "
+                "(token de HuggingFace o Featherless)"
+            )
+        return "deephat"
     if raw in {"base44", "base-44", "b44"}:
         if not base44_client.enabled():
             raise RuntimeError(
@@ -132,6 +160,21 @@ def reply(
             text = _gemini_from_history(instructions, history)
             LAST_PROVIDER.set("gemini_fallback")
             return text
+    if resolve_provider(provider) == "deephat":
+        messages = [{"role": "system", "content": instructions}]
+        for item in history[-30:]:
+            role = item.get("role")
+            if role in {"user", "assistant"} and item.get("content"):
+                messages.append({"role": role, "content": item["content"]})
+        try:
+            text = _deephat_reply(messages)
+            LAST_PROVIDER.set("deephat")
+            return text
+        except Exception:
+            # Fallback a Gemini; nunca filtrar detalles de auth de Deep Hat.
+            text = _gemini_from_history(instructions, history)
+            LAST_PROVIDER.set("gemini_fallback")
+            return text
     LAST_PROVIDER.set("gemini")
     return _gemini_from_history(instructions, history)
 
@@ -161,6 +204,14 @@ def reply_messages_routed(
         try:
             text = base44_client.reply(instr, history, scope=scope)
             LAST_PROVIDER.set("base44")
+            return text
+        except Exception:
+            LAST_PROVIDER.set("gemini_fallback")
+            return reply_messages(messages, temperature=temperature)
+    if resolve_provider(provider) == "deephat":
+        try:
+            text = _deephat_reply(messages, temperature=temperature)
+            LAST_PROVIDER.set("deephat")
             return text
         except Exception:
             LAST_PROVIDER.set("gemini_fallback")
