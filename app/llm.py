@@ -68,15 +68,32 @@ def _deephat_key() -> str:
     return os.getenv("DEEPHAT_API_KEY", "").strip()
 
 
+def _deephat_base_url() -> str:
+    return os.getenv("DEEPHAT_BASE_URL", "").strip() or DEEPHAT_URL
+
+
+def _deephat_ready() -> bool:
+    """Deep Hat está disponible con API key (HF router) o con servidor propio (Ollama vía túnel)."""
+    return bool(_deephat_key() or os.getenv("DEEPHAT_BASE_URL", "").strip())
+
+
+def _deephat_model() -> str:
+    configured = os.getenv("DEEPHAT_MODEL", "").strip()
+    if configured:
+        return configured
+    # Servidor propio (Ollama en Colab): el modelo se llama "deephat"
+    if "trycloudflare.com" in _deephat_base_url() or ":11434" in _deephat_base_url():
+        return "deephat"
+    return "DeepHat/DeepHat-V1-7B"
+
+
 def _deephat_client() -> OpenAI:
-    key = _deephat_key()
-    if not key:
-        raise RuntimeError("Falta DEEPHAT_API_KEY (token de HuggingFace: hf_...) ")
-    return OpenAI(api_key=key, base_url=os.getenv("DEEPHAT_BASE_URL", DEEPHAT_URL))
+    key = _deephat_key() or "ollama"  # Ollama no valida la key, OpenAI client exige una
+    return OpenAI(api_key=key, base_url=_deephat_base_url())
 
 
 def _deephat_reply(messages: list[dict], temperature: float = 0.4) -> str:
-    model = os.getenv("DEEPHAT_MODEL", "DeepHat/DeepHat-V1-7B").strip()
+    model = _deephat_model()
     api = _deephat_client()
     response = api.chat.completions.create(
         model=model, messages=messages, temperature=temperature
@@ -94,10 +111,10 @@ def resolve_provider(explicit: str | None = None) -> str:
     if raw in {"gemini", "google"}:
         return "gemini"
     if raw in {"deephat", "deep-hat", "hat"}:
-        if not _deephat_key():
+        if not _deephat_ready():
             raise RuntimeError(
-                "Deep Hat pedido pero falta DEEPHAT_API_KEY "
-                "(token de HuggingFace o Featherless)"
+                "Deep Hat pedido pero falta DEEPHAT_API_KEY o DEEPHAT_BASE_URL "
+                "(token de HuggingFace o URL del servidor Ollama propio)"
             )
         return "deephat"
     if raw in {"base44", "base-44", "b44"}:
