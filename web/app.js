@@ -461,7 +461,9 @@ document.getElementById("composer").onsubmit = async (e) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message,
-        provider: (heavyToggle && heavyToggle.checked) ? "base44" : "gemini",
+        // Sin provider: el servidor decide con LLM_PROVIDER (deephat gratis por defecto).
+        // Solo sobreescribir cuando el usuario activa el modo pesado (Base44).
+        provider: (heavyToggle && heavyToggle.checked) ? "base44" : null,
       }),
     });
     const payload = await res.json();
