@@ -1,8 +1,15 @@
-"""Navegador real en la nube (Browserbase) por especialista.
+"""Navegador real en la nube por especialista (Browserbase o Anchor).
 
-Cada especialista puede encender un Chrome REAL que corre en la nube
-de Browserbase. El agente lo maneja (navigate/click/type/read) y el
-usuario lo ve en vivo desde el escritorio (URL de vista embebible).
+Cada especialista puede encender un Chrome REAL que corre en la nube.
+El agente lo maneja (navigate/click/type/read) y el usuario lo ve en
+vivo desde el escritorio (URL de vista embebible).
+
+Proveedores (se elige solo, con fallback automático):
+- Browserbase: BROWSERBASE_API_KEY + BROWSERBASE_PROJECT_ID
+- Anchor:      ANCHOR_API_KEY (api.anchorbrowser.io, CDP igual que BB)
+
+Si ambos están configurados se prefiere Browserbase; si falla (cuota,
+conexión), se reintenta automáticamente con Anchor.
 
 Control de costo: la sesión se apaga sola a los 15 minutos o cuando
 el usuario/el agente la apagan explícitamente.
@@ -13,13 +20,18 @@ import json
 import secrets
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 
-API_KEY = (os.environ.get("BROWSERBASE_API_KEY") or "").strip()
-PROJECT_ID = (os.environ.get("BROWSERBASE_PROJECT_ID") or "").strip()
-_API = "https://api.browserbase.com/v1"
+BB_API_KEY = (os.environ.get("BROWSERBASE_API_KEY") or "").strip()
+BB_PROJECT_ID = (os.environ.get("BROWSERBASE_PROJECT_ID") or "").strip()
+ANCHOR_API_KEY = (os.environ.get("ANCHOR_API_KEY") or "").strip()
+
+_BB_API = "https://api.browserbase.com/v1"
+_ANCHOR_API = "https://api.anchorbrowser.io/v1"
 SESSION_SECONDS = 900
+ANCHOR_MAX_SECONDS = 3600  # límite hard de Anchor: 60 min por sesión
 MAX_FREE_BROWSERS = 2
 VIEWPORT_W = 1600
 VIEWPORT_H = 900
@@ -34,29 +46,37 @@ class PremiumRequired(BrowserError):
     """Se necesita suscripción premium para más navegadores."""
 
 
-def _prune_and_count() -> int:
-    alive = 0
-    for key, st in list(_SESSIONS.items()):
-        try:
-            s = _api(f"/sessions/{st['session']}")
-        except BrowserError:
-            s = None
-        if s and s.get("status") == "RUNNING":
-            alive += 1
-        else:
-            _SESSIONS.pop(key, None)
-    return alive
+# ------------------------------------------------------------------ helpers
+
+def _bb_configured() -> bool:
+    return bool(BB_API_KEY and BB_PROJECT_ID)
+
+
+def _anchor_configured() -> bool:
+    return bool(ANCHOR_API_KEY)
 
 
 def configured() -> bool:
-    return bool(API_KEY and PROJECT_ID)
+    return _bb_configured() or _anchor_configured()
 
 
-def _api(path: str, data: dict | None = None, method: str | None = None) -> dict:
+def _http_json(url: str, headers: dict, data: dict | None = None,
+               method: str | None = None) -> dict:
     req = urllib.request.Request(
-        _API + path,
+        url,
         data=json.dumps(data).encode() if data is not None else None,
-        headers={"X-BB-API-Key": API_KEY, "Content-Type": "application/json"},
+        headers=headers,
+        method=method or ("POST" if data is not None else "GET"),
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        return json.loads(resp.read() or b"{}")
+
+
+def _bb_api(path: str, data: dict | None = None, method: str | None = None) -> dict:
+    req = urllib.request.Request(
+        _BB_API + path,
+        data=json.dumps(data).encode() if data is not None else None,
+        headers={"X-BB-API-Key": BB_API_KEY, "Content-Type": "application/json"},
         method=method or ("POST" if data is not None else "GET"),
     )
     try:
@@ -76,33 +96,141 @@ def _api(path: str, data: dict | None = None, method: str | None = None) -> dict
         raise BrowserError(f"no se pudo conectar con Browserbase: {exc}") from exc
 
 
-def status(specialist_id: str) -> dict:
-    st = _SESSIONS.get(specialist_id)
-    if not st:
-        return {"on": False, "configured": configured()}
+def _anchor_api(path: str, data: dict | None = None, method: str | None = None) -> dict:
     try:
-        s = _api(f"/sessions/{st['session']}")
+        return _http_json(
+            _ANCHOR_API + path,
+            headers={"anchor-api-key": ANCHOR_API_KEY, "Content-Type": "application/json"},
+            data=data,
+            method=method,
+        )
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = (exc.read() or b"{}").decode(errors="replace")[:200]
+        except Exception:
+            detail = ""
+        raise BrowserError(f"Anchor {exc.code}: {detail}".strip()) from exc
+    except Exception as exc:
+        raise BrowserError(f"no se pudo conectar con Anchor: {exc}") from exc
+
+
+# ---------------------------------------------------------- anchor sessions
+
+def _anchor_create() -> tuple[str, str, str]:
+    """Crea una sesión de Anchor. Devuelve (session_id, cdp_url, live_view)."""
+    r = _anchor_api("/sessions", {})
+    d = r.get("data") or {}
+    if not d.get("cdp_url"):
+        raise BrowserError("Anchor no devolvió conexión CDP")
+    return d["id"], d["cdp_url"], d.get("live_view_url") or ""
+
+
+def _anchor_running(session_id: str) -> bool:
+    try:
+        d = _anchor_api(f"/sessions/{session_id}").get("data") or {}
     except BrowserError:
-        _SESSIONS.pop(specialist_id, None)
-        return {"on": False, "configured": configured()}
-    if s.get("status") != "RUNNING":
-        _SESSIONS.pop(specialist_id, None)
-        return {"on": False, "configured": configured()}
-    st["expires"] = s.get("expiresAt")
+        return False
+    return d.get("status") == "running"
+
+
+def _anchor_stop(session_id: str) -> None:
+    try:
+        _anchor_api(f"/sessions/{session_id}", method="DELETE")
+    except Exception:
+        pass
+
+
+# ------------------------------------------------------------ sesión activa
+
+def _session_status(st: dict) -> dict | None:
+    """None si la sesión murió; dict del proveedor si sigue viva."""
+    if st.get("provider") == "anchor":
+        if _anchor_running(st["session"]):
+            return {"ok": True}
+        return None
+    try:
+        s = _bb_api(f"/sessions/{st['session']}")
+    except BrowserError:
+        return None
+    if s.get("status") == "RUNNING":
+        st["expires"] = s.get("expiresAt")
+        return {"ok": True, "bb": s}
+    return None
+
+
+def _prune_and_count() -> int:
+    alive = 0
+    for key, st in list(_SESSIONS.items()):
+        if _session_status(st) is not None:
+            alive += 1
+        else:
+            _SESSIONS.pop(key, None)
+    return alive
+
+
+def _provider_status(specialist_id: str, st: dict) -> dict:
+    expires = st.get("expires")
+    if st.get("provider") == "anchor":
+        expires = st.get("expires") or time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + SESSION_SECONDS))
     return {
         "on": True,
         "configured": True,
+        "provider": st.get("provider"),
         "sessionId": st["session"],
-        "expiresAt": s.get("expiresAt"),
-        "viewerUrl": st["viewer"],
+        "expiresAt": expires,
+        "viewerUrl": st.get("viewer") or "",
         "viewportWidth": VIEWPORT_W,
         "viewportHeight": VIEWPORT_H,
     }
 
 
+def status(specialist_id: str) -> dict:
+    st = _SESSIONS.get(specialist_id)
+    if not st:
+        return {"on": False, "configured": configured()}
+    if _session_status(st) is None:
+        _SESSIONS.pop(specialist_id, None)
+        return {"on": False, "configured": configured()}
+    return _provider_status(specialist_id, st)
+
+
+def _create_session(specialist_id: str, last_url: str = "") -> dict:
+    """Crea una sesión nueva con el mejor proveedor disponible.
+
+    Devuelve la entrada de _SESSIONS ya guardada.
+    """
+    if _bb_configured():
+        try:
+            s = _bb_api("/sessions", {"projectId": BB_PROJECT_ID, "timeout": SESSION_SECONDS,
+                                      "keepAlive": True,
+                                      "browserSettings": {"viewport": {"width": VIEWPORT_W, "height": VIEWPORT_H}}})
+            if s.get("connectUrl"):
+                try:
+                    d = _bb_api(f"/sessions/{s['id']}/debug")
+                    viewer = d.get("debuggerFullscreenUrl") or d.get("debuggerUrl") or ""
+                except BrowserError:
+                    viewer = ""
+                st = {"provider": "bb", "session": s["id"], "connect": s["connectUrl"],
+                      "viewer": viewer, "expires": s.get("expiresAt"), "last_url": last_url}
+                _SESSIONS[specialist_id] = st
+                return st
+            raise BrowserError("la sesión de Browserbase no devolvió conexión")
+        except BrowserError:
+            if not _anchor_configured():
+                raise
+    if not _anchor_configured():
+        raise BrowserError("ningún proveedor de navegador está configurado (faltan los secretos)")
+    session_id, cdp, live = _anchor_create()
+    st = {"provider": "anchor", "session": session_id, "connect": cdp,
+          "viewer": live, "expires": None, "last_url": last_url}
+    _SESSIONS[specialist_id] = st
+    return st
+
+
 def start(specialist_id: str, is_pro: bool = False) -> dict:
     if not configured():
-        raise BrowserError("Browserbase no está configurado (faltan los secretos)")
+        raise BrowserError("el navegador no está configurado (faltan los secretos)")
     cur = status(specialist_id)
     if cur.get("on"):
         return cur
@@ -112,36 +240,20 @@ def start(specialist_id: str, is_pro: bool = False) -> dict:
             "Para encender un 3er navegador activá la suscripción premium "
             "(US$30/mes) desde tu perfil."
         )
-    s = _api("/sessions", {"projectId": PROJECT_ID, "timeout": SESSION_SECONDS,
-                           "keepAlive": True,
-                           "browserSettings": {"viewport": {"width": VIEWPORT_W, "height": VIEWPORT_H}}})
-    if not s.get("connectUrl"):
-        raise BrowserError("la sesión no devolvió conexión")
-    d = _api(f"/sessions/{s['id']}/debug")
-    viewer = d.get("debuggerFullscreenUrl") or d.get("debuggerUrl") or ""
-    _SESSIONS[specialist_id] = {
-        "session": s["id"],
-        "viewer": viewer,
-        "expires": s.get("expiresAt"),
-    }
-    return {
-        "on": True,
-        "configured": True,
-        "sessionId": s["id"],
-        "expiresAt": s.get("expiresAt"),
-        "viewerUrl": viewer,
-        "viewportWidth": VIEWPORT_W,
-        "viewportHeight": VIEWPORT_H,
-    }
+    st = _create_session(specialist_id)
+    return _provider_status(specialist_id, st)
 
 
 def stop(specialist_id: str) -> dict:
     st = _SESSIONS.pop(specialist_id, None)
     if st:
-        try:
-            _api(f"/sessions/{st['session']}", {"status": "REQUEST_RELEASE"})
-        except Exception:
-            pass
+        if st.get("provider") == "anchor":
+            _anchor_stop(st["session"])
+        else:
+            try:
+                _bb_api(f"/sessions/{st['session']}", {"status": "REQUEST_RELEASE"})
+            except Exception:
+                pass
     return {"on": False, "configured": configured()}
 
 
@@ -149,11 +261,10 @@ def _connect_url(specialist_id: str) -> str:
     st = _SESSIONS.get(specialist_id)
     if not st:
         raise BrowserError("el navegador está apagado (encendelo primero)")
-    s = _api(f"/sessions/{st['session']}")
-    if s.get("status") != "RUNNING":
+    if _session_status(st) is None:
         _SESSIONS.pop(specialist_id, None)
         raise BrowserError("la sesión expiró (encendé el navegador de nuevo)")
-    return s["connectUrl"]
+    return st.get("connect") or ""
 
 
 def _valid_url(url: str) -> str:
@@ -176,7 +287,7 @@ def _snap(page, specialist_id: str) -> dict:
     from app.store import DATA
     shot_dir = DATA / "computers" / specialist_id / "screenshots"
     shot_dir.mkdir(parents=True, exist_ok=True)
-    name = f"{int(__import__('time').time())}_{secrets.token_hex(4)}.png"
+    name = f"{int(time.time())}_{secrets.token_hex(4)}.png"
     raw = page.screenshot(timeout=8000, type="jpeg", quality=52, animations="disabled")
     (shot_dir / name).write_bytes(raw)
     return {
@@ -187,27 +298,12 @@ def _snap(page, specialist_id: str) -> dict:
 
 def _reconnect(specialist_id: str) -> str:
     """Re-crea la sesión del navegador tras una caída y conserva la última página."""
-    if not configured():
-        raise BrowserError("Browserbase no está configurado (faltan los secretos)")
     st = _SESSIONS.pop(specialist_id, None) or {}
     last_url = st.get("last_url", "")
-    s = _api("/sessions", {"projectId": PROJECT_ID, "timeout": SESSION_SECONDS,
-                           "keepAlive": True,
-                           "browserSettings": {"viewport": {"width": VIEWPORT_W, "height": VIEWPORT_H}}})
-    if not s.get("connectUrl"):
-        raise BrowserError("la sesión no devolvió conexión")
-    try:
-        d = _api(f"/sessions/{s['id']}/debug")
-        viewer = d.get("debuggerFullscreenUrl") or d.get("debuggerUrl") or ""
-    except BrowserError:
-        viewer = ""
-    _SESSIONS[specialist_id] = {
-        "session": s["id"],
-        "viewer": viewer,
-        "expires": s.get("expiresAt"),
-        "last_url": last_url,
-    }
-    return s["connectUrl"]
+    if st.get("provider") == "anchor":
+        _anchor_stop(st.get("session") or "")
+    new_st = _create_session(specialist_id, last_url=last_url)
+    return new_st["connect"]
 
 
 def action(specialist_id: str, do: str, url: str = "",
