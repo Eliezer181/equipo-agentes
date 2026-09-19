@@ -115,6 +115,10 @@ def install() -> None:
                 pass
         return {"replies": replies, "messages": group["messages"], "provider": provider_used}
 
+    # anotaciones reales para que FastAPI parsee payload como body (no query)
+    from fastapi import Request as _Request
+    api_group_chat.__annotations__ = {"group_id": str, "payload": main.ChatIn, "request": _Request}
+
     for route in list(main.app.router.routes):
         path = getattr(route, "path", "")
         methods = getattr(route, "methods", set()) or set()

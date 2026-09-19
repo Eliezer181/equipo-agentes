@@ -138,8 +138,12 @@ def handle_chat(specialist_id: str, payload: Any, request: Request):
 def install() -> None:
     from app.main import ChatIn, app
 
-    def api_chat(specialist_id: str, payload: ChatIn, request: Request):
+    def api_chat(specialist_id: str, payload, request: Request):
         return handle_chat(specialist_id, payload, request)
+    # __future__ annotations hace que ChatIn no sea resoluble desde las
+    # globals del módulo: fijamos las anotaciones con los objetos reales,
+    # si no FastAPI trata payload como query param (422 en producción).
+    api_chat.__annotations__ = {"specialist_id": str, "payload": ChatIn, "request": Request}
 
     for route in list(app.router.routes):
         path = getattr(route, "path", "")
