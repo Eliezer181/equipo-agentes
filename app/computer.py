@@ -184,6 +184,122 @@ def write(agent_id: str, name: str, body: str) -> dict:
     return {"ok": True, "name": p.name, "size": len(body or "")}
 
 
+_MIME_BY_EXT = {
+    ".pdf": "application/pdf",
+    ".txt": "text/plain; charset=utf-8",
+    ".md": "text/markdown; charset=utf-8",
+    ".csv": "text/csv; charset=utf-8",
+    ".json": "application/json",
+    ".html": "text/html; charset=utf-8",
+}
+
+
+def read_bytes(agent_id: str, name: str) -> tuple[bytes, str]:
+    """Lee un archivo del agente como bytes crudos (para descargar: PDFs, etc.)."""
+    p = home(agent_id) / _safe_name(name)
+    if not p.is_file():
+        raise ComputerError(f"no existe {name}")
+    mime = _MIME_BY_EXT.get(p.suffix.lower(), "application/octet-stream")
+    return p.read_bytes(), mime
+
+
+def _latin1_safe(text: str) -> str:
+    """Los fonts base de fpdf2 (Helvetica) sólo cubren Latin-1 (incluye tildes
+    y ñ). Reemplazamos cualquier carácter fuera de ese rango (emojis, etc.)."""
+    return (text or "").encode("latin-1", "replace").decode("latin-1")
+
+
+def write_pdf(agent_id: str, name: str, title: str, body: str) -> dict:
+    """Genera un PDF prolijo (títulos, subtítulos, viñetas, párrafos) a partir
+    de texto con un mini-formato tipo markdown (#, ##, ###, - item)."""
+    from fpdf import FPDF
+
+    doc_title = _latin1_safe(title or name or "Documento")
+
+    class ReportPDF(FPDF):
+        def header(self):
+            if self.page_no() == 1:
+                return
+            self.set_font("Helvetica", "", 8)
+            self.set_text_color(150, 150, 150)
+            self.cell(0, 8, doc_title[:90])
+            self.ln(2)
+            self.set_draw_color(215, 215, 215)
+            self.line(10, self.get_y(), 200, self.get_y())
+            self.ln(4)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font("Helvetica", "", 8)
+            self.set_text_color(160, 160, 160)
+            self.cell(0, 10, f"Página {self.page_no()}", align="C")
+
+    pdf = ReportPDF()
+    pdf.set_auto_page_break(auto=True, margin=18)
+    pdf.set_margins(16, 16, 16)
+    pdf.add_page()
+
+    pdf.set_font("Helvetica", "B", 20)
+    pdf.set_text_color(20, 20, 20)
+    pdf.multi_cell(0, 10, doc_title)
+
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(130, 130, 130)
+    from datetime import datetime, timezone
+    pdf.cell(0, 6, datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC"))
+    pdf.ln(3)
+    pdf.set_draw_color(210, 210, 210)
+    pdf.line(pdf.l_margin, pdf.get_y(), 210 - pdf.r_margin, pdf.get_y())
+    pdf.ln(6)
+
+    for raw_line in (body or "").split(chr(10)):
+        line = _latin1_safe(raw_line.rstrip())
+        stripped = line.strip()
+        if not stripped:
+            pdf.ln(3)
+            continue
+        clean = stripped.replace("**", "").replace("__", "")
+        if clean.startswith("### "):
+            pdf.set_font("Helvetica", "B", 12)
+            pdf.set_text_color(30, 30, 30)
+            pdf.ln(2)
+            pdf.multi_cell(0, 7, clean[4:])
+            pdf.ln(1)
+        elif clean.startswith("## "):
+            pdf.set_font("Helvetica", "B", 14)
+            pdf.set_text_color(15, 15, 15)
+            pdf.ln(3)
+            pdf.multi_cell(0, 8, clean[3:])
+            pdf.ln(1)
+        elif clean.startswith("# "):
+            pdf.set_font("Helvetica", "B", 16)
+            pdf.set_text_color(10, 10, 10)
+            pdf.ln(4)
+            pdf.multi_cell(0, 9, clean[2:])
+            pdf.ln(2)
+        elif clean.startswith(("- ", "* ")):
+            pdf.set_font("Helvetica", "", 11)
+            pdf.set_text_color(45, 45, 45)
+            pdf.set_x(pdf.l_margin + 4)
+            pdf.multi_cell(0, 6.5, "-  " + clean[2:])
+        elif re.match(r"^\d+\.\s", clean):
+            pdf.set_font("Helvetica", "", 11)
+            pdf.set_text_color(45, 45, 45)
+            pdf.set_x(pdf.l_margin + 4)
+            pdf.multi_cell(0, 6.5, clean)
+        else:
+            pdf.set_font("Helvetica", "", 11)
+            pdf.set_text_color(45, 45, 45)
+            pdf.multi_cell(0, 6.5, clean)
+
+    safe_name = _safe_name(name or "documento.pdf")
+    if not safe_name.lower().endswith(".pdf"):
+        safe_name += ".pdf"
+    p = home(agent_id) / safe_name
+    pdf.output(str(p))
+    return {"ok": True, "name": p.name, "size": p.stat().st_size}
+
+
 def delete(agent_id: str, name: str) -> dict:
     p = home(agent_id) / _safe_name(name)
     if not p.is_file():
@@ -334,6 +450,17 @@ TOOL_HINT = (
     '{"tool":"write","name":"nota.md","body":"contenido"} · '
     '{"tool":"read","name":"nota.md"} · '
     '{"tool":"fetch","url":"https://ejemplo.com"}\n'
+    "## Enviar archivos al usuario (PDF / TXT)\n"
+    "Si el usuario te pide un PDF, un reporte, un resumen o un archivo de texto "
+    "para descargar, generalo prolijo con esta herramienta (no con write, que es "
+    "solo para tus notas internas):\n"
+    '```json\n{"tool":"file","format":"pdf","name":"reporte.pdf","title":"Título del documento","body":"# Sección 1\\n\\nTexto...\\n\\n- viñeta 1\\n- viñeta 2\\n\\n## Subsección\\nMás texto."}\n```\n'
+    "El campo body admite mini-markdown: # / ## / ### para títulos y subtítulos, "
+    "líneas que empiezan con \"- \" para viñetas, el resto son párrafos normales. "
+    "Para un .txt simple usá format:\"txt\" (o terminá el name en .txt).\n"
+    "La herramienta te devuelve un link tipo /api/specialists/.../download: "
+    "SIEMPRE incluí ese link en tu respuesta al usuario como [nombre](link) para "
+    "que lo pueda descargar tocándolo.\n"
     "También tenés un NAVEGADOR REAL (Chrome en la nube) que el usuario ve en vivo "
     "mientras lo usás. Si el usuario te pide buscar, abrir o hacer algo en la web, "
     "MANEJALO VOS: encendé (se enciende solo si ya lo está), navegá, leé y clickeá "
@@ -375,7 +502,7 @@ def extract_tool(text: str) -> dict | None:
             data = json.loads(m.group(1))
         except (json.JSONDecodeError, ValueError):
             continue
-        if isinstance(data, dict) and data.get("tool") in {"bash", "python", "write", "read", "fetch", "browser", "vault"}:
+        if isinstance(data, dict) and data.get("tool") in {"bash", "python", "write", "read", "fetch", "browser", "vault", "file"}:
             return data
     return None
 
@@ -527,6 +654,23 @@ def execute_tool(agent_id: str, agent_name: str | None, tool: dict, is_pro: bool
         if kind == "write":
             r = write(agent_id, str(tool.get("name") or ""), str(tool.get("body") or ""))
             return f"guardado {r['name']} ({r['size']} caracteres)"
+        if kind == "file":
+            fmt = str(tool.get("format") or "").strip().lower()
+            name = str(tool.get("name") or "").strip()
+            title = str(tool.get("title") or name or "Documento")
+            body = str(tool.get("body") or "")
+            if not name:
+                return "falta el nombre del archivo (name)"
+            if fmt == "pdf" or name.lower().endswith(".pdf"):
+                r = write_pdf(agent_id, name, title, body)
+            else:
+                if not name.lower().endswith(".txt"):
+                    name += ".txt"
+                r = write(agent_id, name, body)
+            link = f"/api/specialists/{agent_id}/computer/files/{r['name']}/download"
+            return (f"archivo '{r['name']}' creado ({r['size']} bytes). Para que el "
+                    f"usuario lo descargue, incluí EN TU RESPUESTA el link markdown: "
+                    f"[{r['name']}]({link})")
         if kind == "read":
             body = read(agent_id, str(tool.get("name") or ""))
             if len(body) > 6_000:

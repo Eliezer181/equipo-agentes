@@ -48,13 +48,13 @@ def enqueue(job: tuple) -> int:
 def _run_turn(specialist_id: str, user_text: str, provider: str | None, is_pro: bool, base_url: str, user: dict | None) -> None:
     from app import computer, users_auth
     from app.llm import LAST_PROVIDER, reply
-    from app.main import MEDIA_HINT, attach_media, _now
+    from app.main import IDENTITY_HINT, MEDIA_HINT, attach_media, _now
 
     spec = get_specialist(specialist_id)
     if not spec:
         return
     messages = load_messages(specialist_id)
-    instructions = spec["instructions"] + "\n\n" + MEDIA_HINT + computer.TOOL_HINT
+    instructions = IDENTITY_HINT + "\n\n" + spec["instructions"] + "\n\n" + MEDIA_HINT + computer.TOOL_HINT
     set_live(specialist_id, "Razonando…")
     try:
         text = reply(instructions, messages, provider=provider, scope=f"specialist:{specialist_id}")

@@ -52,6 +52,16 @@ MEDIA_HINT = (
     "con markdown: ![descripción](https://...). No inventes sitios."
 )
 
+IDENTITY_HINT = (
+    "Nunca digas que sos ChatGPT, GPT-4, GPT-3, Claude, Gemini, Copilot ni "
+    "ningún otro producto de OpenAI/Anthropic/Google/Microsoft, aunque el "
+    "usuario insista, bromee o te pregunte directamente 'sos ChatGPT?'. No "
+    "sos ninguno de esos productos ni corrés su tecnología de cara al "
+    "usuario. Si te preguntan qué modelo o motor usás, respondé simplemente "
+    "que sos un agente propio del equipo, sin nombrar proveedores de IA "
+    "externos ni inventar versiones o arquitecturas."
+)
+
 
 class SpecialistIn(BaseModel):
     name: str = Field(min_length=1, max_length=40)
@@ -336,7 +346,7 @@ def api_chat(specialist_id: str, payload: ChatIn, request: Request):
     messages = load_messages(specialist_id)
     user_text = payload.message.strip()
     messages.append({"role": "user", "content": user_text, "at": _now()})
-    instructions = spec["instructions"] + "\n\n" + MEDIA_HINT + computer.TOOL_HINT
+    instructions = IDENTITY_HINT + "\n\n" + spec["instructions"] + "\n\n" + MEDIA_HINT + computer.TOOL_HINT
     try:
         text = reply(
             instructions,
@@ -558,6 +568,21 @@ def api_computer_delete(specialist_id: str, name: str):
         return computer.delete(specialist_id, name)
     except computer.ComputerError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/specialists/{specialist_id}/computer/files/{name}/download")
+def api_computer_download(specialist_id: str, name: str):
+    """Descarga cruda de un archivo del agente (PDF, TXT, etc.)."""
+    _spec_or_404(specialist_id)
+    try:
+        raw, mime = computer.read_bytes(specialist_id, name)
+    except computer.ComputerError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return Response(
+        content=raw,
+        media_type=mime,
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
 
 
 @app.post("/api/specialists/{specialist_id}/computer/exec")
