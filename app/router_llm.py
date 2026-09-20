@@ -45,7 +45,7 @@ def install() -> None:
         if want == "base44":
             with _SLOTS:
                 return orig(instructions, history, provider="base44", scope=scope)
-        return orig(instructions, history, provider="gemini", scope=scope)
+        return orig(instructions, history, provider=want, scope=scope)
 
     def reply_messages_routed(messages, temperature=0.4, *, provider=None, scope="default", instructions=""):
         hist = [m for m in (messages or []) if m.get("role") in {"user", "assistant"}]
@@ -60,7 +60,7 @@ def install() -> None:
                 )
         return orig_group(
             messages, temperature,
-            provider="gemini", scope=scope, instructions=instructions,
+            provider=want, scope=scope, instructions=instructions,
         )
 
     reply._routed = True
