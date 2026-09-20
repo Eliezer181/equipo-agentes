@@ -3,21 +3,23 @@
   background:
     radial-gradient(900px 400px at 20% 0%,rgba(245,158,11,.12),transparent 50%),
     #0a0a0e;
-  padding:10px 10px calc(12px + env(safe-area-inset-bottom));
+  padding:0;
 }
 .desk-window{
-  flex:1;min-height:0;border-radius:16px;overflow:hidden;
-  background:#111116;border:1px solid rgba(255,255,255,.08);
+  flex:1;min-height:0;overflow:hidden;
+  background:#111116;border:0;border-radius:0;
   display:flex;flex-direction:column;
 }
 .desk-pane{flex:1;min-height:0;display:flex;flex-direction:column}
 .desk-pane[hidden]{display:none!important}
 .desk-pane-bar{
   display:flex;align-items:center;justify-content:space-between;
-  padding:10px 12px;font-size:12px;color:#a1a1aa;border-bottom:1px solid #1c1c1e;
+  padding:10px 12px;font-size:12px;color:#a1a1aa;border-bottom:1px solid rgba(255,255,255,.06);
 }
 .desk-mini{
-  width:28px;height:28px;border:0;border-radius:8px;background:#1c1c1e;color:#f4f4f5;
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#f4f4f5;
 }
 .desk-files{overflow:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
 .desk-file{
@@ -29,17 +31,23 @@
 .desk-file span{font-size:11px;color:#8e8e93}
 .desk-empty{margin:24px;text-align:center;color:#8e8e93;font-size:13px}
 .desk-url-row,.desk-cmd-row{
-  display:flex;gap:8px;align-items:center;padding:8px;
-  border-bottom:1px solid #1c1c1e;
+  display:flex;gap:8px;align-items:center;padding:9px 10px;
+  border-bottom:1px solid rgba(255,255,255,.06);
 }
-.desk-cmd-row{border-bottom:0;border-top:1px solid #1c1c1e}
+.desk-cmd-row{border-bottom:0;border-top:1px solid rgba(255,255,255,.06)}
 .desk-url-row input,.desk-cmd-row input{
-  flex:1;min-width:0;border:0;border-radius:8px;background:#0c0c10;color:#e4e4e7;
-  padding:8px 10px;font-size:13px;
+  flex:1;min-width:0;border:1px solid rgba(255,255,255,.09);border-radius:14px;
+  background:rgba(255,255,255,.04);color:#e4e4e7;
+  padding:8px 12px;font-size:13px;
 }
-.desk-url-row button{
-  border:0;border-radius:8px;background:#f59e0b;color:#111;font-weight:700;padding:8px 12px;
+.desk-url-row input:focus,.desk-cmd-row input:focus{outline:0;border-color:rgba(255,255,255,.2)}
+.desk-go-btn{
+  width:30px;height:30px;flex-shrink:0;border-radius:50%;padding:0;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(245,158,11,.35);background:rgba(245,158,11,.08);
+  color:#fbbf24;
 }
+.desk-go-btn:active{background:rgba(245,158,11,.16)}
 .desk-browser,.desk-term{flex:1;min-height:0;overflow:auto}
 .desk-page{padding:24px 16px;color:#a1a1aa;font-size:14px;line-height:1.45}
 .desk-page em{color:#fde68a;font-style:normal}
@@ -68,10 +76,31 @@
 .desk-frame{flex:1;width:100%;height:100%;border:0;background:#fff}
 
 /* Chrome real en la nube */
-.desk-chrome-btn{white-space:nowrap;font-size:11px;padding:4px 10px;border-radius:6px;
-  border:1px solid var(--line,#333);background:#1c1c22;color:#e8e8ed;cursor:pointer}
-.desk-chrome-btn.on{background:#0b8a3d;border-color:#0b8a3d;color:#fff}
-.desk-real-badge{font-size:11px;color:#0b8a3d;padding:2px 8px}
+.desk-chrome-btn{
+  white-space:nowrap;font-size:11px;font-weight:600;padding:6px 12px 6px 10px;border-radius:999px;
+  display:flex;align-items:center;gap:6px;flex-shrink:0;
+  border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#e8e8ed;cursor:pointer;
+}
+.desk-chrome-dot{width:6px;height:6px;border-radius:50%;background:#8e8e93;flex-shrink:0}
+.desk-chrome-btn.on{
+  border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.08);
+  box-shadow:0 0 10px rgba(52,211,153,.16);color:#eafff4;
+}
+.desk-chrome-btn.on .desk-chrome-dot{background:#34d399;box-shadow:0 0 6px rgba(52,211,153,.85);animation:desk-dot-pulse 1.6s ease-in-out infinite}
+@keyframes desk-dot-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+.desk-real-badge{
+  position:absolute;top:10px;left:10px;z-index:6;
+  display:flex;align-items:center;gap:7px;
+  font-size:11px;font-weight:600;color:#eafff4;padding:6px 12px;border-radius:999px;
+  border:1px solid rgba(52,211,153,.4);background:rgba(10,14,12,.55);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  box-shadow:0 0 12px rgba(52,211,153,.14);
+  transition:opacity .35s ease, transform .35s ease;
+}
+.desk-real-badge.desk-badge-hide{opacity:0;transform:translateY(-6px)}
+.desk-real-dot{width:6px;height:6px;border-radius:50%;background:#34d399;box-shadow:0 0 6px rgba(52,211,153,.85);flex-shrink:0;animation:desk-dot-pulse 1.6s ease-in-out infinite}
 
 /* Cartel de límite premium */
 .desk-premium{margin:14px;padding:14px;border-radius:10px;background:#0d0d12;
@@ -80,12 +109,8 @@
 
 
 
-/* ---- Pantalla completa para Chrome real (declutter) ---- */
-#desk.desk-fullscreen .chat-top{display:none}
-#desk.desk-fullscreen .desk-dock{display:none}
-#desk.desk-fullscreen .desk-stage{padding:0}
-#desk.desk-fullscreen .desk-window{border-radius:0;border:0}
-#desk.desk-fullscreen .desk-url-row{padding:4px 6px}
+/* El navegador va siempre de borde a borde; el header (volver, avatar,
+   "?", "···") queda fijo arriba, sin pasos intermedios. */
 
 .desk-browser.browsing{position:relative;overflow:hidden;padding:0;display:flex;flex-direction:column}
 .desk-frame-wrap{
@@ -112,11 +137,6 @@
 .desk-cursor.pressed svg path{fill:#fde68a}
 .desk-cursor.tap svg path{fill:#86efac}
 
-.desk-fs-exit{
-  position:absolute;top:8px;right:8px;z-index:6;width:32px;height:32px;border-radius:50%;
-  background:rgba(0,0,0,.6);color:#fff;border:0;font-size:15px;line-height:32px;
-}
-
 /* Los 2 iconos fijos: portapapeles (izq) y teclado (der), abajo de todo */
 .desk-corner-btn{
   position:absolute;bottom:14px;z-index:8;width:44px;height:44px;border-radius:50%;
@@ -142,3 +162,34 @@
 }
 .desk-clip-menu button:active{background:#26262c}
 .desk-clip-menu button + button{border-top:1px solid rgba(255,255,255,.08)}
+
+/* ---- Header simplificado: solo volver, "?" y "···" ---- */
+.desk-top .who-text{flex:1;min-width:0}
+.desk-top-actions{display:flex;gap:6px;flex-shrink:0;position:relative}
+.desk-top-actions .desk-mini{
+  border-radius:50%;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;
+}
+.desk-top-menu{
+  position:absolute;top:calc(100% + 8px);right:0;z-index:20;min-width:210px;
+  background:rgba(20,20,24,.9);border:1px solid rgba(255,255,255,.12);border-radius:14px;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  box-shadow:0 10px 30px rgba(0,0,0,.5);overflow:hidden;
+}
+.desk-top-menu.hidden{display:none!important}
+.desk-top-menu button{
+  display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;
+  border:0;background:transparent;color:#f4f4f5;font-size:13px;text-align:left;
+}
+.desk-top-menu button:active{background:rgba(255,255,255,.06)}
+
+/* ---- Sheet "Usar el ordenador" ---- */
+.desk-help-row{
+  display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border-radius:14px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);
+}
+.desk-help-ico{
+  width:32px;height:32px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:#fbbf24;
+}
+.desk-help-row b{display:block;font-size:14px;color:#f4f4f5;margin-bottom:2px}
+.desk-help-row span{display:block;font-size:12.5px;color:#a1a1aa;line-height:1.4}

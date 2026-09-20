@@ -9,9 +9,9 @@
   btn.type = "button";
   btn.id = "btn-attach";
   btn.title = "Adjuntar imagen";
-  btn.textContent = "+";
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>';
   var input = composer.querySelector("#input");
-  composer.insertBefore(btn, input);
+  input.parentNode.insertBefore(btn, input);
   document.body.appendChild(file);
 
   function compress(blob) {

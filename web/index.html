@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Glou</title>
-  <link rel="stylesheet" href="/static/styles.css?v=28" />
-  <link rel="stylesheet" href="/static/desk.css?v=31" />
+  <link rel="stylesheet" href="/static/styles.css?v=34" />
+  <link rel="stylesheet" href="/static/desk.css?v=34" />
   <link rel="stylesheet" href="/static/agent-sheet.css?v=3" />
-  <link rel="stylesheet" href="/static/glass-fx.css?v=3" />
+  <link rel="stylesheet" href="/static/glass-fx.css?v=9" />
   <link rel="stylesheet" href="/static/group-sheet.css?v=1" />
   <link rel="stylesheet" href="/static/connectors.css?v=1" />
   <link rel="stylesheet" href="/static/extras.css?v=1" />
@@ -25,8 +25,8 @@
     .think-dot{width:6px;height:6px;border-radius:50%;background:#a1a1aa;animation:think-pulse 1s ease-in-out infinite}
     @keyframes think-pulse{50%{opacity:.25}}
     .composer{background:transparent!important;border-top:0!important;padding:8px 10px calc(12px + env(safe-area-inset-bottom))!important;gap:8px!important}
-    .composer input{color:#f5f5f7!important}
-    .composer input::placeholder{color:rgba(235,235,245,.45)}
+    .composer #input{color:#f5f5f7!important}
+    .composer #input::placeholder{color:rgba(235,235,245,.45)}
     #btn-at.hidden{display:none!important}
   </style>
 </head>
@@ -63,46 +63,37 @@
       <div id="thread" class="thread"></div>
       <form id="composer" class="composer">
         <button type="button" id="btn-at" class="hidden" title="Mencionar">@</button>
-        <input id="input" autocomplete="off" placeholder="Mensaje" enterkeyhint="send" />
-        <button type="submit">Enviar</button>
+        <div class="c-row">
+          <textarea id="input" rows="1" autocomplete="off" placeholder="Mensaje" enterkeyhint="send"></textarea>
+          <button type="submit">Enviar</button>
+        </div>
       </form>
     </section>
     <section id="desk" class="screen">
-      <header class="top chat-top">
+      <header class="top chat-top desk-top">
         <button type="button" id="btn-desk-back" class="back">←</button>
+        <div id="desk-dot" class="buddy-slot"></div>
         <div class="who-text">
           <div id="desk-agent" class="name">PC</div>
           <div id="desk-status" class="meta">en línea</div>
         </div>
+        <div class="desk-top-actions">
+          <button type="button" id="desk-help-btn" class="desk-mini" title="Cómo usar" aria-label="Cómo usar">?</button>
+          <button type="button" id="desk-menu-btn" class="desk-mini" title="Más opciones" aria-label="Más opciones">
+            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="19" cy="12" r="1.7" fill="currentColor"/></svg>
+          </button>
+          <div id="desk-top-menu" class="desk-top-menu hidden">
+            <button type="button" id="desk-recenter-btn">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>
+              <span>Recentrar el puntero</span>
+            </button>
+          </div>
+        </div>
       </header>
       <div id="desk-stage" class="desk-stage">
         <div class="desk-window">
-          <div class="desk-pane" data-desk-pane="files">
-            <div class="desk-pane-bar">Archivos <button type="button" id="desk-add-file" class="desk-mini">+</button></div>
-            <div id="desk-files" class="desk-files"></div>
-          </div>
-          <div class="desk-pane" data-desk-pane="browser" hidden>
-            <form id="desk-url-form" class="desk-url-row">
-              <button type="button" id="desk-back-btn" class="desk-mini" title="Atrás">←</button>
-              <input id="desk-url" value="https://" autocomplete="off" />
-              <button type="submit">Ir</button>
-              <button type="button" id="desk-chrome-toggle" class="desk-chrome-btn">⚡ Chrome real</button>
-            </form>
-            <div id="desk-browser" class="desk-browser"></div>
-          </div>
-          <div class="desk-pane" data-desk-pane="term" hidden>
-            <pre id="desk-term" class="desk-term"></pre>
-            <form id="desk-term-form" class="desk-cmd-row">
-              <span>%</span>
-              <input id="desk-cmd" autocomplete="off" placeholder="comando" />
-            </form>
-          </div>
+          <div id="desk-browser" class="desk-browser"></div>
         </div>
-        <nav class="desk-dock">
-          <button type="button" data-desk-app="files" class="on">Archivos</button>
-          <button type="button" data-desk-app="browser">Navegador</button>
-          <button type="button" data-desk-app="term">Terminal</button>
-        </nav>
       </div>
     </section>
     <div id="toast" role="status" aria-live="polite"></div>
@@ -146,6 +137,42 @@
         <div class="sheet-actions">
           <button type="button" id="btn-close-info" class="ghost">Cerrar</button>
           <button type="button" id="btn-delete-group" class="danger">Borrar grupo</button>
+        </div>
+      </div>
+    </div>
+    <div id="desk-help-modal" class="modal hidden">
+      <div class="sheet">
+        <div class="grabber"></div>
+        <h2>Usar el ordenador</h2>
+        <p class="section-label" style="padding-left:0">Mover y hacer clic</p>
+        <div class="desk-help-row">
+          <div class="desk-help-ico"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2 L20 12.5 L12.3 13.8 L9 21 Z"/></svg></div>
+          <div><b>Mover el puntero</b><span>Deslizá el dedo por la pantalla: el puntero se mueve como en un trackpad y tu dedo nunca lo tapa.</span></div>
+        </div>
+        <div class="desk-help-row">
+          <div class="desk-help-ico"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/></svg></div>
+          <div><b>Hacer clic</b><span>Soltá el dedo sin arrastrar para hacer clic justo donde quedó el puntero.</span></div>
+        </div>
+        <div class="desk-help-row">
+          <div class="desk-help-ico"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5v14M16 5v14"/></svg></div>
+          <div><b>Desplazarse</b><span>Arrastrá con dos dedos hacia arriba o abajo para hacer scroll.</span></div>
+        </div>
+        <p class="section-label" style="padding-left:0">Escribir y portapapeles</p>
+        <div class="desk-help-row">
+          <div class="desk-help-ico"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"/></svg></div>
+          <div><b>Escribir</b><span>Tocá el botón del teclado, abajo, para escribir con el teclado de tu teléfono.</span></div>
+        </div>
+        <div class="desk-help-row">
+          <div class="desk-help-ico"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/></svg></div>
+          <div><b>Copiar y pegar</b><span>Tocá el botón del portapapeles, abajo, para copiar al teléfono o pegar desde el teléfono.</span></div>
+        </div>
+        <p class="section-label" style="padding-left:0">Si se te pierde el puntero</p>
+        <div class="desk-help-row">
+          <div class="desk-help-ico"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg></div>
+          <div><b>Recentrar el puntero</b><span>Tocá "···" arriba y elegí "Recentrar el puntero" para devolverlo al centro.</span></div>
+        </div>
+        <div class="sheet-actions">
+          <button type="button" id="desk-help-close" class="ghost">Cerrar</button>
         </div>
       </div>
     </div>
@@ -201,14 +228,14 @@
   </div>
   <script src="/static/err-fix.js?v=1"></script>
   <script src="/static/avatar.js?v=24"></script>
-  <script src="/static/app.js?v=26"></script>
+  <script src="/static/app.js?v=29"></script>
   <script src="/static/color-ui.js?v=24"></script>
-  <script src="/static/group-ui.js?v=24"></script>
-  <script src="/static/computer-ui.js?v=33"></script>
-  <script src="/static/status-ui.js?v=3"></script>
+  <script src="/static/group-ui.js?v=26"></script>
+  <script src="/static/computer-ui.js?v=36"></script>
+  <script src="/static/status-ui.js?v=4"></script>
   <script src="/static/agent-sheet.js?v=4"></script>
   <script src="/static/group-sheet.js?v=1"></script>
-  <script src="/static/attach-ui.js?v=1"></script>
+  <script src="/static/attach-ui.js?v=2"></script>
   <script src="/static/glass-fx.js?v=1"></script>
   <script src="/static/connectors.js?v=1"></script>
   <script src="/static/extras-ui.js?v=1"></script>

@@ -15,6 +15,7 @@
   var agentName = "Agente";
   var app = "files";
   var termLog = [];
+  var recenterCursorFn = null;
 
   function key() {
     return "glou-desk-" + (agentId || "none");
@@ -55,6 +56,7 @@
   }
 
   function renderTerm() {
+    if (!termEl) return;
     termEl.textContent = termLog.join("\n");
     termEl.scrollTop = termEl.scrollHeight;
   }
@@ -65,6 +67,7 @@
   }
 
   async function loadFiles() {
+    if (!filesEl) return;
     try {
       var state = await api("/api/specialists/" + encodeURIComponent(agentId) + "/computer");
       filesEl.innerHTML = (state.files || []).map(function (f) {
@@ -106,14 +109,17 @@
     }
   }
 
+  var agentSpec = null;
   async function resolveAgent() {
     var name = (document.getElementById("chat-name") || {}).textContent || "";
     agentName = name || "Agente";
     try {
       var specs = await (await fetch("/api/specialists")).json();
       var hit = specs.find(function (s) { return s.name === name; });
+      agentSpec = hit || null;
       agentId = hit ? hit.id : (name || "agente").toLowerCase().replace(/[^a-z0-9_-]/g, "-");
     } catch (_) {
+      agentSpec = null;
       agentId = (name || "agente").toLowerCase().replace(/[^a-z0-9_-]/g, "-");
     }
   }
@@ -124,23 +130,23 @@
     await resolveAgent();
     if (titleEl) titleEl.textContent = "PC · " + agentName;
     if (statusEl) statusEl.textContent = "en línea";
-    if (!termLog.length) {
-      termLog = [
-        agentName.toLowerCase().replace(/[^a-z0-9_-]/g, "") + "@" + agentId + " ~ % listo",
-        "# computadora real · archivos y terminal del servidor"
-      ];
+    var deskDot = document.getElementById("desk-dot");
+    if (deskDot && typeof buddySvg === "function") {
+      deskDot.innerHTML = buddySvg(agentSpec || { id: agentId, color: "#f97316" }, 34);
     }
-    renderTerm();
-    await loadFiles();
     document.querySelectorAll(".screen").forEach(function (el) {
       el.classList.toggle("active", el.id === "desk");
     });
+    await bbStatus();
+    if (!bb.on) await ensureChromeOn();
   }
 
   function closeDesk() {
     document.querySelectorAll(".screen").forEach(function (el) {
       el.classList.toggle("active", el.id === "chat");
     });
+    var topMenu = document.getElementById("desk-top-menu");
+    if (topMenu) topMenu.classList.add("hidden");
   }
 
   if (openBtn) openBtn.addEventListener("click", function (e) {
@@ -148,6 +154,39 @@
     openDesk();
   });
   if (backBtn) backBtn.addEventListener("click", closeDesk);
+
+  // ---------- "?" ayuda y "···" opciones (recentrar el puntero) ----------
+  var deskHelpBtn = document.getElementById("desk-help-btn");
+  var deskHelpModal = document.getElementById("desk-help-modal");
+  var deskHelpClose = document.getElementById("desk-help-close");
+  if (deskHelpBtn && deskHelpModal) deskHelpBtn.addEventListener("click", function () {
+    deskHelpModal.classList.remove("hidden");
+  });
+  if (deskHelpClose && deskHelpModal) deskHelpClose.addEventListener("click", function () {
+    deskHelpModal.classList.add("hidden");
+  });
+  if (deskHelpModal) deskHelpModal.addEventListener("click", function (e) {
+    if (e.target === deskHelpModal) deskHelpModal.classList.add("hidden");
+  });
+
+  var deskMenuBtn = document.getElementById("desk-menu-btn");
+  var deskTopMenu = document.getElementById("desk-top-menu");
+  var deskRecenterBtn = document.getElementById("desk-recenter-btn");
+  if (deskMenuBtn && deskTopMenu) deskMenuBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    deskTopMenu.classList.toggle("hidden");
+  });
+  if (deskRecenterBtn) deskRecenterBtn.addEventListener("click", function () {
+    if (deskTopMenu) deskTopMenu.classList.add("hidden");
+    if (recenterCursorFn) recenterCursorFn();
+    else toast("Todav\u00eda no hay navegador en vivo");
+  });
+  document.addEventListener("click", function (e) {
+    if (deskTopMenu && !deskTopMenu.classList.contains("hidden") &&
+        !deskTopMenu.contains(e.target) && e.target !== deskMenuBtn) {
+      deskTopMenu.classList.add("hidden");
+    }
+  });
 
   desk.addEventListener("click", function (e) {
     var dock = e.target.closest("[data-desk-app]");
@@ -193,7 +232,7 @@
   function bbRender() {
     if (!browserEl) return;
     if (chromeBtn) {
-      chromeBtn.textContent = bb.on ? "Apagar Chrome real" : "\u26a1 Chrome real";
+      chromeBtn.innerHTML = bb.on ? "<span class=\"desk-chrome-dot\"></span>Chrome en vivo" : "<span class=\"desk-chrome-dot\"></span>Chrome real";
       chromeBtn.classList.toggle("on", bb.on);
       chromeBtn.title = bb.on ? ("Expira: " + bb.expiresAt) : "Enciende un Chrome real en la nube";
     }
@@ -202,8 +241,7 @@
       // navbar=false: la barra de Browserbase queda oculta, usamos la nuestra.
       var viewer = bb.viewerUrl + (bb.viewerUrl.indexOf("?") === -1 ? "?" : "&") + "navbar=false";
       browserEl.innerHTML =
-        "<div class=\"desk-real-badge\">\u25cf Chrome en vivo (se apaga solo a los 15 min)</div>" +
-        "<button type=\"button\" class=\"desk-fs-exit\" title=\"Achicar\">\u2715</button>" +
+        "<div class=\"desk-real-badge\"><span class=\"desk-real-dot\"></span>Chrome en vivo &middot; se apaga a los 15 min</div>" +
         "<div class=\"desk-touch-overlay\"></div>" +
         "<div class=\"desk-frame-wrap\">" +
         "<div class=\"desk-frame-box\">" +
@@ -215,18 +253,19 @@
         "<button type=\"button\" class=\"desk-corner-btn desk-corner-clip\" title=\"Portapapeles\"><svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='6' y='4' width='12' height='17' rx='2'/><path d='M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1'/><path d='M9 10h6M9 14h6M9 18h3'/></svg></button>" +
         "<button type=\"button\" class=\"desk-corner-btn desk-corner-kb\" title=\"Teclado\"><svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='6' width='20' height='12' rx='2'/><path d='M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12'/></svg></button>" +
         "<input class=\"desk-hidden-input\" autocomplete=\"off\" autocapitalize=\"off\" spellcheck=\"false\" />";
-      desk.classList.add("desk-fullscreen");
       sizeFrameBox();
       attachTouchCursor();
       attachKeyboard();
       attachClipboard();
       window.addEventListener("resize", sizeFrameBox);
-      var exitBtn = browserEl.querySelector(".desk-fs-exit");
-      if (exitBtn) exitBtn.addEventListener("click", function () {
-        desk.classList.remove("desk-fullscreen");
-      });
+      // El aviso "Chrome en vivo" se muestra solo 3s y se apaga solo.
+      var badgeEl = browserEl.querySelector(".desk-real-badge");
+      if (badgeEl) {
+        setTimeout(function () {
+          badgeEl.classList.add("desk-badge-hide");
+        }, 3000);
+      }
     } else {
-      desk.classList.remove("desk-fullscreen");
       // Si se apagó (botón o expiración), limpiar la vista en vivo muerta.
       // Solo si hay vista en vivo (desk-frame-box); la vista proxy no se toca.
       if (browserEl.classList.contains("browsing") && browserEl.querySelector(".desk-frame-box")) {
@@ -263,6 +302,7 @@
     if (!wrap || !overlay || !cursor) return;
     var virt = { fx: 0.5, fy: 0.5 };
     var dragging = false, lastX = 0, lastY = 0, movedDist = 0, twoFinger = false, scrollAcc = 0;
+    recenterCursorFn = function () { virt.fx = 0.5; virt.fy = 0.5; render(); };
 
     function render() {
       var r = wrap.getBoundingClientRect();
@@ -461,18 +501,11 @@
     } catch (err) { /* sin estado */ }
   }
 
-  if (chromeBtn) chromeBtn.addEventListener("click", async function () {
-    if (bb.on) {
-      bb = { on: false, viewerUrl: "", expiresAt: "" };
-      browserEl.innerHTML = "<p class=\"desk-empty\">Chrome real apagado.</p>";
-      bbRender();
-      pushTerm(["$ chrome stop"]);
-      try { await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ do: "stop" })
-      }); } catch (err) {}
-      return;
-    }
-    chromeBtn.textContent = "Encendiendo\u2026";
+  // Enciende el Chrome real en la nube y muestra la vista en vivo. Ya no hay
+  // botón manual: al entrar a "PC" se llama directo (openDesk -> ensureChromeOn).
+  async function ensureChromeOn() {
+    if (bb.on) { bbRender(); return; }
+    browserEl.innerHTML = "<p class=\"desk-empty\">Encendiendo Chrome en vivo\u2026</p>";
     pushTerm(["$ chrome start"]);
     try {
       var st = await api("/api/specialists/" + encodeURIComponent(agentId) + "/browser", {
@@ -483,8 +516,7 @@
       bbRender();
       pushTerm(["\u2192 navegador en vivo listo"]);
     } catch (err) {
-      chromeBtn.textContent = "\u26a1 Chrome real";
-      if (err.message.indexOf("premium") !== -1) {
+      if ((err.message || "").indexOf("premium") !== -1) {
         browserEl.innerHTML =
           "<div class=\"desk-premium\"><b>\u26a1 L\u00edmite del plan gratis alcanzado</b>" +
           "<p>Ya hay 2 navegadores encendidos. Para encender un 3ero, " +
@@ -493,7 +525,8 @@
         browserEl.innerHTML = "<p class=\"desk-empty\">No se pudo encender: " + escapeHtml(err.message) + "</p>";
       }
     }
-  });
+  }
+  if (chromeBtn) chromeBtn.addEventListener("click", ensureChromeOn);
 
   var backBtn2 = document.getElementById("desk-back-btn");
   if (backBtn2) backBtn2.addEventListener("click", async function () {

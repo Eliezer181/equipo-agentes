@@ -6,12 +6,15 @@
   function rich(text) {
     const src = String(text || "");
     const out = [];
-    const re = /!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s<]+)/g;
+    const re = /!\[([^\]]*)\]\(((?:https?:\/\/|\/)[^)\s]+)\)|\[([^\]]+)\]\(((?:https?:\/\/|\/)[^)\s]+)\)|(https?:\/\/[^\s<]+)/g;
     let last = 0, m;
     while ((m = re.exec(src))) {
       out.push(escapeHtml(src.slice(last, m.index)));
       if (m[2]) out.push('<img class="msg-img" alt="' + escapeHtml(m[1]) + '" src="' + escapeHtml(m[2]) + '">');
-      else if (m[4]) out.push('<a class="msg-link" href="' + escapeHtml(m[4]) + '" target="_blank" rel="noopener">' + escapeHtml(m[3]) + '</a>');
+      else if (m[4]) {
+        const isFile = /\/download(\?|$)/i.test(m[4]) || /\.(pdf|docx?|xlsx?|pptx?|txt|csv|zip)(\?|$)/i.test(m[4]);
+        out.push(isFile ? window.fileCardHTML(m[3], m[4]) : '<a class="msg-link" href="' + escapeHtml(m[4]) + '" target="_blank" rel="noopener">' + escapeHtml(m[3]) + '</a>');
+      }
       else {
         const url = m[5].replace(/[),.;]+$/, "");
         const img = /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url) || /wikimedia|loremflickr|unsplash|imgur/i.test(url);

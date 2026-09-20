@@ -21,7 +21,11 @@
     el = document.createElement("div");
     el.id = "think-bar";
     el.className = "think-bar hidden";
-    el.innerHTML = '<span class="think-dot"></span><span id="think-text">Razonando…</span>';
+    el.innerHTML = '<div class="tb-pill">'
+      + '<span class="tb-brain"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9.5 3.5c2-1.4 5-1.2 6.6.7.9 1.1 1.2 2.5.9 3.8 1 .6 1.7 1.6 1.9 2.8.3 1.8-.6 3.5-2.2 4.3-.2 1.5-1.1 2.8-2.5 3.4-1.5.7-3.2.4-4.4-.6-1.4.3-2.9-.2-3.9-1.3-1-1.2-1.3-2.8-.8-4.2C4 12 3.3 10.6 3.5 9c.2-1.6 1.4-2.9 2.9-3.4.3-1 .8-1.7 1.6-2.1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 6.2v11.6M8.4 9.4h2.3M13.3 9.4h2.3M8.9 12.6h1.8M13.6 12.6h1.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/></svg></span>'
+      + '<span class="tb-text"><span id="think-text">Analizando tu consulta…</span></span>'
+      + '<span class="tb-dots"><i></i><i></i><i></i></span>'
+      + '</div>';
     var composer = document.getElementById("composer");
     if (composer) composer.parentNode.insertBefore(el, composer);
     return el;
@@ -45,22 +49,52 @@
         var data = await res.json();
         var parsed = {};
         try { parsed = JSON.parse(data.body || data.text || ""); } catch (_) {}
-        if (parsed.text && !(parsed.at && parsed.at + 0.2 < startedAt)) setText(parsed.text);
+        if (parsed.text && !(parsed.at && parsed.at + 0.2 < startedAt)) {
+          setText(parsed.text);
+          lastLiveAt = Date.now() / 1000;
+          rIndex = 0;
+        }
       }
     } catch (_) {}
   }
+  function phrasesFor(msg) {
+    var t = " " + String(msg || "").toLowerCase() + " ";
+    if (/https?:\/\/|www\./.test(t) || /\b(abr|entr|naveg|captur)\b/.test(t)) return ["Preparando el navegador…", "Cargando la página…", "Tomando captura…", "Redactando la respuesta…"];
+    if (/\b(pdf|documento|word|excel|planilla|archivo)\b/.test(t)) return ["Preparando tu archivo…", "Generando el contenido…", "Guardando el archivo…", "Listando el resultado…"];
+    if (/\b(busca|busc[áa]|investig|google|informaci|noticias|qui[ée]n|qu[ée] es)\b/.test(t)) return ["Investigando en la web…", "Leyendo fuentes…", "Filtrando lo importante…", "Redactando la respuesta…"];
+    if (/\b(c[óo]digo|python|script|programa|calcul)\b/.test(t)) return ["Preparando el código…", "Ejecutando en la computadora…", "Revisando el resultado…"];
+    if (/\b(gmail|correo|email|mail|bandeja)\b/.test(t)) return ["Revisando el correo…", "Buscando en tu bandeja…", "Redactando la respuesta…"];
+    if (/github|repo|commit/.test(t)) return ["Conectando a GitHub…", "Revisando el repositorio…", "Redactando la respuesta…"];
+    if (/\b(imagen|logo|dise[ñn]o|avatar|foto|dibuj)\b/.test(t)) return ["Preparando el diseño…", "Generando la imagen…", "Redactando la respuesta…"];
+    return ["Analizando tu consulta…", "Razonando…", "Redactando la respuesta…"];
+  }
+  var rotate = null;
+  var rotation = [];
+  var rIndex = 0;
+  var lastLiveAt = 0;
   function startThink() {
     startedAt = Date.now() / 1000;
     var el = bar();
-    setText("Razonando…");
+    var input = document.querySelector("#composer input, #composer textarea");
+    rotation = phrasesFor(input ? input.value : "");
+    rIndex = 0;
+    lastLiveAt = 0;
+    setText(rotation[0]);
     el.classList.remove("hidden");
     clearInterval(poll);
     clearTimeout(kill);
+    clearInterval(rotate);
     poll = setInterval(tick, 450);
+    rotate = setInterval(function () {
+      if (Date.now() / 1000 - lastLiveAt < 5) return;  // el backend mando estado real hace poco: no pisarlo
+      rIndex = (rIndex + 1) % rotation.length;
+      setText(rotation[rIndex]);
+    }, 4200);
     kill = setTimeout(stopThink, 90000);
   }
   function stopThink() {
     clearInterval(poll);
+    clearInterval(rotate);
     clearTimeout(kill);
     poll = null;
     var el = document.getElementById("think-bar");

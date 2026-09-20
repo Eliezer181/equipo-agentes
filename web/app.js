@@ -7,6 +7,26 @@ const agentModal = document.getElementById("agent-modal");
 const thread = document.getElementById("thread");
 const input = document.getElementById("input");
 
+// Textarea: crece con el texto hasta un maximo y despues scrollea adentro (estilo WhatsApp)
+const INPUT_MAX_H = 132;
+function autosizeInput() {
+  input.style.height = "auto";
+  const over = input.scrollHeight > INPUT_MAX_H;
+  input.style.height = Math.min(input.scrollHeight, INPUT_MAX_H) + "px";
+  input.style.overflowY = over ? "auto" : "hidden";
+  input.scrollTop = input.scrollHeight;
+}
+input.addEventListener("input", autosizeInput);
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+    e.preventDefault();
+    input.form.requestSubmit();
+  }
+});
+document.getElementById("composer").addEventListener("submit", () => {
+  setTimeout(() => { autosizeInput(); input.scrollTop = 0; }, 0);
+}, true);
+
 let specialists = [];
 let groups = [];
 let current = null;
@@ -51,14 +71,36 @@ if (heavyToggle) {
   syncHeavyUi();
 }
 
+
+// Tarjeta de archivo pro: icono PDF dibujado en SVG (sin emojis), nombre y descarga
+window.fileCardHTML = function (label, url) {
+  var name = String(label || "archivo").replace(/\[(.*?)\]\([^)]*\)/g, "$1").trim() || "archivo";
+  var ext = (name.match(/\.[a-z0-9]{2,4}$/i) || [""])[0].replace(".", "").toUpperCase();
+  var isPdf = /pdf/i.test(name) || /pdf/i.test(url) || ext === "PDF";
+  var kind = isPdf ? "PDF" : (ext || "ARCHIVO");
+  var icon = isPdf
+    ? '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#e5484d"/><path d="M14 2l5 5h-5V2z" fill="#ff8a8d"/><text x="12" y="16.5" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="5.4" font-weight="700" fill="#fff">PDF</text></svg>'
+    : '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#8b8b94"/><path d="M14 2l5 5h-5V2z" fill="#b3b3bc"/><path d="M8 12h8M8 15.5h8M8 19h5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg>';
+  return '<a class="file-card" href="' + url + '" download>'
+    + '<span class="fc-icon">' + icon + '</span>'
+    + '<span class="fc-meta"><span class="fc-name">' + escapeHtml(name) + '</span>'
+    + '<span class="fc-sub">' + kind + ' &middot; Toc&aacute; para descargar</span></span>'
+    + '<svg class="fc-dl" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 20h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
+    + '</a>';
+};
+
 // Convierte markdown mínimo a HTML seguro: imágenes ![alt](url) y links [texto](url)
 function renderContent(text) {
   let html = escapeHtml(text);
   const IMG_STYLE = "display:block;max-width:100%;width:100%;height:auto;border-radius:12px;margin:6px 0;border:1px solid rgba(0,0,0,.08);";
-  html = html.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g,
+  html = html.replace(/!\[([^\]]*)\]\(((?:https?:\/\/|\/)[^\s)]+)\)/g,
     (m, alt, url) => `<a href="${url}" target="_blank" rel="noopener"><img class="chat-img" style="${IMG_STYLE}" src="${url}" alt="${alt}" loading="lazy" /></a>`);
-  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  html = html.replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]+)\)/g,
+    function (m, text, url) {
+      var isFile = /\/download(\?|$)/i.test(url) || /\.(pdf|docx?|xlsx?|pptx?|txt|csv|zip)(\?|$)/i.test(url);
+      if (isFile) return fileCardHTML(text, url);
+      return '<a href="' + url + '" target="_blank" rel="noopener">' + text + '</a>';
+    });
   return html;
 }
 
