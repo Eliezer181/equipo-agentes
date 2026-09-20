@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import re
+import secrets
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -251,6 +253,48 @@ def api_me(request: Request):
     if not user:
         raise HTTPException(status_code=401, detail="Sin sesión")
     return user
+
+
+ADMIN_RESET_KEY = os.getenv("ADMIN_RESET_KEY", "")
+
+
+class ResetIn(BaseModel):
+    email: str = Field(min_length=3, max_length=120)
+    new_password: str = Field(min_length=8, max_length=200)
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str = Field(min_length=1, max_length=200)
+    new_password: str = Field(min_length=8, max_length=200)
+
+
+@app.post("/api/auth/admin-reset")
+def api_admin_reset(payload: ResetIn, request: Request):
+    """Restablece la contraseña de cualquier cuenta.
+
+    Protegido con la cabecera X-Admin-Key, que debe coincidir con el
+    secreto ADMIN_RESET_KEY configurado en Fly. Sin esa clave,
+    el endpoint rechaza todo pedido.
+    """
+    provided = request.headers.get("x-admin-key", "")
+    if not ADMIN_RESET_KEY or not secrets.compare_digest(provided, ADMIN_RESET_KEY):
+        raise HTTPException(status_code=403, detail="No autorizado")
+    try:
+        user = users_auth.reset_password(payload.email, payload.new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "user": user}
+
+
+@app.post("/api/auth/change-password")
+def api_change_password(payload: ChangePasswordIn, request: Request):
+    """Permite al usuario autenticado cambiar su propia contraseña."""
+    user = _require_user(request)
+    try:
+        users_auth.change_password(user["email"], payload.current_password, payload.new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True}
 
 
 @app.get("/api/billing/config")
