@@ -861,6 +861,74 @@ def _require_admin(request: Request) -> None:
         raise HTTPException(status_code=401, detail="Clave de admin incorrecta")
 
 
+@app.get("/api/admin/diagnostics")
+def api_admin_diagnostics(request: Request, live: int = 0):
+    """Diagnóstico de proveedores LLM para el dueño (requiere X-Admin-Token).
+
+    Con ?live=1 hace una prueba real de cada proveedor: una mini llamada a
+    Gemini, una a Deep Hat y una lectura del saldo de Base44. Nunca expone
+    claves: sólo estados, errores y tiempos.
+    """
+    import json as _json
+    import time as _time
+    from app import llm as _llm
+
+    _require_admin(request)
+
+    def _read_errors():
+        from app.store import DATA
+        p = DATA / "llm_errors.json"
+        if not p.exists():
+            return []
+        try:
+            return _json.loads(p.read_text(encoding="utf-8"))[-50:]
+        except Exception:
+            return []
+
+    out = {
+        "llm_provider_env": os.getenv("LLM_PROVIDER", ""),
+        "base44_enabled": base44_client.enabled(),
+        "gemini_key_present": _llm._using_gemini(),
+        "deephat_ready": _llm._deephat_ready(),
+        "deephat_model": _llm._deephat_model(),
+        "models_in_order": _llm._models(),
+        "recent_errors": _read_errors(),
+    }
+    if live:
+        try:
+            t0 = _time.time()
+            txt = _llm.reply_messages([
+                {"role": "system", "content": "Respondé únicamente con la palabra OK."},
+                {"role": "user", "content": "OK?"},
+            ])
+            out["gemini_live"] = {
+                "ok": bool(txt),
+                "seconds": round(_time.time() - t0, 1),
+                "sample": (txt or "")[:30],
+            }
+        except Exception as exc:
+            out["gemini_live"] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"[:400]}
+        if _llm._deephat_ready():
+            try:
+                t0 = _time.time()
+                txt = _llm._deephat_reply([
+                    {"role": "system", "content": "Respondé únicamente con la palabra OK."},
+                    {"role": "user", "content": "OK?"},
+                ])
+                out["deephat_live"] = {
+                    "ok": bool(txt),
+                    "seconds": round(_time.time() - t0, 1),
+                    "sample": (txt or "")[:30],
+                }
+            except Exception as exc:
+                out["deephat_live"] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"[:400]}
+        try:
+            out["base44_live"] = base44_client.status_public()
+        except Exception as exc:
+            out["base44_live"] = {"error": f"{type(exc).__name__}: {exc}"[:400]}
+    return out
+
+
 class Base44AdminIn(BaseModel):
     api_key: str | None = Field(default=None, max_length=500)
     base_url: str | None = Field(default=None, max_length=500)

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import os
+import time as _time
 from contextvars import ContextVar
 
 from openai import OpenAI
@@ -19,6 +21,43 @@ GEMINI_MODELS = (
     "gemini-flash-latest",
 )
 RETRYABLE = ("model not found", "invalid-argument", "not found", "does not exist")
+
+RATE_LIMITED = ("429", "resource_exhausted", "quota", "rate limit",
+                "rate_limit", "too many requests", "exceeded your current quota")
+
+
+def record_llm_error(provider: str, stage: str, exc: Exception | None = None,
+                     detail: str = "") -> None:
+    """Guarda el fallo de un proveedor para diagnóstico.
+
+    Los errores antes se tragaban en silencio y era imposible saber por qué
+    caía el chat. Se guardan en data/llm_errors.json (los últimos 50) y se
+    imprimen a stdout (visibles con fly logs).
+    """
+    msg = detail or (f"{type(exc).__name__}: {exc}" if exc else "desconocido")
+    try:
+        from app.store import DATA
+        from datetime import datetime, timezone
+        p = DATA / "llm_errors.json"
+        data = []
+        if p.exists():
+            try:
+                loaded = json.loads(p.read_text(encoding="utf-8"))
+                if isinstance(loaded, list):
+                    data = loaded
+            except Exception:
+                data = []
+        data.append({
+            "at": datetime.now(timezone.utc).isoformat(),
+            "provider": provider,
+            "stage": stage,
+            "error": msg[:400],
+        })
+        p.write_text(json.dumps(data[-50:], ensure_ascii=False, indent=2),
+                     encoding="utf-8")
+    except Exception:
+        pass
+    print(f"[llm] fallo {provider}/{stage}: {msg[:300]}")
 
 
 def _keys() -> tuple[str, str]:
@@ -102,25 +141,33 @@ _NO_NATIVE_TOOLS = (
 def _deephat_reply(messages: list[dict], temperature: float = 0.4) -> str:
     model = _deephat_model()
     api = _deephat_client()
-    try:
+
+    def _call(msgs):
         response = api.chat.completions.create(
-            model=model, messages=messages, temperature=temperature, tools=[], tool_choice="none",
+            model=model, messages=msgs, temperature=temperature,
+            tools=[], tool_choice="none",
         )
-        return (response.choices[0].message.content or "").strip()
+        content = (response.choices[0].message.content or "").strip()
+        if not content:
+            raise RuntimeError("el modelo respondió vacío (intentó una tool call nativa)")
+        return content
+
+    try:
+        return _call(messages)
     except Exception as exc:
-        # El modelo suele intentar una tool call nativa (no soportada por este
-        # protocolo) y el servidor la rechaza con 400. Reintentamos una vez
-        # reforzando que responda solo en texto plano antes de rendirnos.
-        text = str(exc).lower()
-        if "tool" not in text and "parse" not in text:
-            raise
+        # El modelo (gpt-oss vía Colab) suele intentar una tool call nativa
+        # (no soportada por este protocolo): el servidor la rechaza con 400 o
+        # responde vacío. Reintentamos UNA vez reforzando que responda solo
+        # en texto plano antes de rendirnos.
+        record_llm_error("deephat", "llamada inicial", exc)
         retry_messages = list(messages) + [
             {"role": "system", "content": _NO_NATIVE_TOOLS.strip()}
         ]
-        response = api.chat.completions.create(
-            model=model, messages=retry_messages, temperature=temperature, tools=[], tool_choice="none",
-        )
-        return (response.choices[0].message.content or "").strip()
+        try:
+            return _call(retry_messages)
+        except Exception as exc2:
+            record_llm_error("deephat", "reintento", exc2)
+            raise
 
 
 def resolve_provider(explicit: str | None = None) -> str:
@@ -153,20 +200,32 @@ def resolve_provider(explicit: str | None = None) -> str:
 
 
 def reply_messages(messages: list[dict], temperature: float = 0.4) -> str:
-    """Prueba los modelos en orden hasta que uno responda."""
+    """Prueba los modelos en orden hasta que uno responda.
+
+    Si el fallo es de cuota/rate-limit (429), espera y reintenta el mismo
+    modelo hasta 2 veces antes de pasar al siguiente.
+    """
     last_error = None
     api = client()
     for model in _models():
-        try:
-            response = api.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-            )
-            return (response.choices[0].message.content or "").strip()
-        except Exception as exc:
-            last_error = exc
-            text = str(exc).lower()
+        for attempt in range(3):
+            try:
+                response = api.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                )
+                return (response.choices[0].message.content or "").strip()
+            except Exception as exc:
+                last_error = exc
+                text = str(exc).lower()
+                record_llm_error("gemini", f"modelo {model} (intento {attempt + 1})", exc)
+                if any(marker in text for marker in RATE_LIMITED) and attempt < 2:
+                    _time.sleep(3 * (attempt + 1))
+                    continue
+                break
+        if last_error is not None:
+            text = str(last_error).lower()
             if any(marker in text for marker in RETRYABLE):
                 continue
             raise
@@ -191,7 +250,8 @@ FRIENDLY_FAIL = (
 def _safe_gemini_from_history(instructions: str, history: list[dict]) -> str | None:
     try:
         return _gemini_from_history(instructions, history)
-    except Exception:
+    except Exception as exc:
+        record_llm_error("gemini", "fallback", exc)
         return None
 
 
@@ -214,7 +274,8 @@ def reply(
             text = base44_client.reply(instructions, history, scope=scope)
             LAST_PROVIDER.set("base44")
             return text
-        except Exception:
+        except Exception as exc:
+            record_llm_error("base44", "llamada principal", exc)
             # Fallback to Gemini; never leak Base44 auth details to callers.
             text = _safe_gemini_from_history(instructions, history)
             LAST_PROVIDER.set("gemini_fallback" if text else "error")
@@ -229,8 +290,9 @@ def reply(
             text = _deephat_reply(messages)
             LAST_PROVIDER.set("deephat")
             return text
-        except Exception:
+        except Exception as exc:
             # Fallback a Gemini; nunca filtrar detalles de auth de Deep Hat.
+            record_llm_error("deephat", "principal (pasa a Gemini)", exc)
             text = _safe_gemini_from_history(instructions, history)
             LAST_PROVIDER.set("gemini_fallback" if text else "error")
             return text or FRIENDLY_FAIL
