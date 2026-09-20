@@ -84,7 +84,11 @@ def _run_turn(specialist_id: str, user_text: str, provider: str | None, is_pro: 
         text = computer.strip_tools(text) or text
         text = attach_media(user_text, text)
     except Exception as exc:
-        text = "No pude terminar el trabajo: " + str(exc)
+        print(f"[async_chat] fallo en turno de {specialist_id}: {exc!r}")
+        text = (
+            "Se me complicó terminar esa respuesta (un problema momentáneo "
+            "con el modelo). Probá de nuevo, por favor."
+        )
     messages.append({"role": "assistant", "content": text, "at": _now()})
     save_messages(specialist_id, messages)
     set_live(specialist_id, "")

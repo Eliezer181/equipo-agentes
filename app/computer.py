@@ -442,9 +442,14 @@ def proxy_page(url: str) -> tuple[bytes, str]:
 
 TOOL_HINT = (
     "\n\n## Tu computadora\n"
+    "IMPORTANTE: estas herramientas se usan escribiendo un bloque JSON como "
+    "TEXTO PLANO dentro de tu respuesta normal. NUNCA uses function calling, "
+    "tool_calls o llamadas de función nativas de la API: eso rompe la "
+    "conversación. Si no vas a usar ninguna herramienta, respondé directo en "
+    "texto, sin ningún JSON ni intento de invocar nada.\n"
     "Tenés TU PROPIA computadora en el servidor, con carpeta de archivos "
     "persistente. Podés ejecutar bash y Python y manejar tus archivos.\n"
-    "Para usarla, incluí UN bloque JSON (puede ir solo):\n"
+    "Para usarla, incluí UN bloque JSON como texto (puede ir solo):\n"
     '```json\n{"tool": "bash", "cmd": "ls"}\n```\n'
     'Otras herramientas: {"tool":"python","code":"print(1+1)"} · '
     '{"tool":"write","name":"nota.md","body":"contenido"} · '

@@ -92,13 +92,35 @@ def _deephat_client() -> OpenAI:
     return OpenAI(api_key=key, base_url=_deephat_base_url())
 
 
+_NO_NATIVE_TOOLS = (
+    "\n\nRECORDATORIO: no uses function calling ni tool_calls nativos. "
+    "Respondé solo en texto plano (con bloques ```json de texto si hace falta "
+    "usar una herramienta del protocolo, nunca una llamada de función real)."
+)
+
+
 def _deephat_reply(messages: list[dict], temperature: float = 0.4) -> str:
     model = _deephat_model()
     api = _deephat_client()
-    response = api.chat.completions.create(
-        model=model, messages=messages, temperature=temperature
-    )
-    return (response.choices[0].message.content or "").strip()
+    try:
+        response = api.chat.completions.create(
+            model=model, messages=messages, temperature=temperature, tools=[], tool_choice="none",
+        )
+        return (response.choices[0].message.content or "").strip()
+    except Exception as exc:
+        # El modelo suele intentar una tool call nativa (no soportada por este
+        # protocolo) y el servidor la rechaza con 400. Reintentamos una vez
+        # reforzando que responda solo en texto plano antes de rendirnos.
+        text = str(exc).lower()
+        if "tool" not in text and "parse" not in text:
+            raise
+        retry_messages = list(messages) + [
+            {"role": "system", "content": _NO_NATIVE_TOOLS.strip()}
+        ]
+        response = api.chat.completions.create(
+            model=model, messages=retry_messages, temperature=temperature, tools=[], tool_choice="none",
+        )
+        return (response.choices[0].message.content or "").strip()
 
 
 def resolve_provider(explicit: str | None = None) -> str:
@@ -160,6 +182,26 @@ def _gemini_from_history(instructions: str, history: list[dict]) -> str:
     return reply_messages(messages)
 
 
+FRIENDLY_FAIL = (
+    "Se me complicó conectar con el modelo (ida y vuelta de herramientas "
+    "que no cerró bien). Probá de nuevo en un segundo, por favor."
+)
+
+
+def _safe_gemini_from_history(instructions: str, history: list[dict]) -> str | None:
+    try:
+        return _gemini_from_history(instructions, history)
+    except Exception:
+        return None
+
+
+def _safe_reply_messages(messages: list[dict], temperature: float = 0.4) -> str | None:
+    try:
+        return reply_messages(messages, temperature=temperature)
+    except Exception:
+        return None
+
+
 def reply(
     instructions: str,
     history: list[dict],
@@ -174,9 +216,9 @@ def reply(
             return text
         except Exception:
             # Fallback to Gemini; never leak Base44 auth details to callers.
-            text = _gemini_from_history(instructions, history)
-            LAST_PROVIDER.set("gemini_fallback")
-            return text
+            text = _safe_gemini_from_history(instructions, history)
+            LAST_PROVIDER.set("gemini_fallback" if text else "error")
+            return text or FRIENDLY_FAIL
     if resolve_provider(provider) == "deephat":
         messages = [{"role": "system", "content": instructions}]
         for item in history[-30:]:
@@ -189,11 +231,11 @@ def reply(
             return text
         except Exception:
             # Fallback a Gemini; nunca filtrar detalles de auth de Deep Hat.
-            text = _gemini_from_history(instructions, history)
-            LAST_PROVIDER.set("gemini_fallback")
-            return text
+            text = _safe_gemini_from_history(instructions, history)
+            LAST_PROVIDER.set("gemini_fallback" if text else "error")
+            return text or FRIENDLY_FAIL
     LAST_PROVIDER.set("gemini")
-    return _gemini_from_history(instructions, history)
+    return _safe_gemini_from_history(instructions, history) or FRIENDLY_FAIL
 
 
 def reply_messages_routed(
@@ -223,15 +265,17 @@ def reply_messages_routed(
             LAST_PROVIDER.set("base44")
             return text
         except Exception:
-            LAST_PROVIDER.set("gemini_fallback")
-            return reply_messages(messages, temperature=temperature)
+            text = _safe_reply_messages(messages, temperature=temperature)
+            LAST_PROVIDER.set("gemini_fallback" if text else "error")
+            return text or FRIENDLY_FAIL
     if resolve_provider(provider) == "deephat":
         try:
             text = _deephat_reply(messages, temperature=temperature)
             LAST_PROVIDER.set("deephat")
             return text
         except Exception:
-            LAST_PROVIDER.set("gemini_fallback")
-            return reply_messages(messages, temperature=temperature)
+            text = _safe_reply_messages(messages, temperature=temperature)
+            LAST_PROVIDER.set("gemini_fallback" if text else "error")
+            return text or FRIENDLY_FAIL
     LAST_PROVIDER.set("gemini")
-    return reply_messages(messages, temperature=temperature)
+    return _safe_reply_messages(messages, temperature=temperature) or FRIENDLY_FAIL
