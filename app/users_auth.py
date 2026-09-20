@@ -164,3 +164,41 @@ def deduct_credits(email: str, amount: float) -> dict:
 
 def credits_exhausted(user: dict | None) -> bool:
     return False
+
+
+def reset_password(email: str, new_password: str) -> dict:
+    """Restablece la contraseña de un usuario (uso administrador).
+
+    Invalida las sesiones activas de ese usuario para mayor seguridad.
+    """
+    key = (email or "").strip().lower()
+    users = list_users()
+    if key not in users:
+        raise ValueError("Usuario no encontrado")
+    if len(new_password or "") < 8:
+        raise ValueError("Contraseña inválida (mín. 8 caracteres)")
+    salt, hashed = _hash_password(new_password)
+    users[key]["salt"] = salt
+    users[key]["password_hash"] = hashed
+    save_users(users)
+    # Invalidar sesiones activas de ese usuario
+    data = sessions()
+    data = {sid: row for sid, row in data.items() if row.get("email") != key}
+    save_sessions(data)
+    return public_user(users[key])
+
+
+def change_password(email: str, current_password: str, new_password: str) -> dict:
+    """Cambia la contraseña del usuario autenticado."""
+    key = (email or "").strip().lower()
+    users = list_users()
+    user = users.get(key)
+    if not user or not _verify(current_password or "", user["salt"], user["password_hash"]):
+        raise ValueError("Contraseña actual incorrecta")
+    if len(new_password or "") < 8:
+        raise ValueError("La nueva contraseña es inválida (mín. 8 caracteres)")
+    salt, hashed = _hash_password(new_password)
+    user["salt"] = salt
+    user["password_hash"] = hashed
+    save_users(users)
+    return public_user(user)
