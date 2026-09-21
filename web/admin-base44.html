@@ -59,6 +59,13 @@
         <div id="uEvents" style="margin-top:12px;font-size:12px;color:#a1a1aa"></div>
       </div>
 
+      <div class="card" id="diagCard">
+        <div class="row"><strong>Diagnóstico de modelos</strong><button type="button" id="btnDiag" class="ghost" style="width:auto;margin:0;padding:6px 10px;font-size:12px">Probar proveedores</button></div>
+        <p class="muted" style="font-size:12px;margin:4px 0 10px;line-height:1.4">Prueba real de Gemini, DeepHat y Base44, y muestra los últimos errores registrados del chat (por qué fallan los pedidos con herramientas).</p>
+        <div id="diagOut"></div>
+        <button type="button" id="btnDiagCopy" class="ghost hidden">Copiar resultado para enviárselo a alguien</button>
+      </div>
+
       <div class="card">
         <label>Nueva Base URL<input id="baseUrl" type="url" placeholder="https://app.base44.com/api/agents/..." /></label>
         <label>Nueva API key<input id="apiKey" type="password" autocomplete="off" placeholder="Pegá la key de la otra cuenta" /></label>
@@ -176,6 +183,59 @@
       document.getElementById("apiKey").value = "";
       showMsg("Override borrado. Volvió la config de Fly.", true);
       await loadStatus();
+    };
+
+    let lastDiag = null;
+
+    async function runDiag() {
+      const out = document.getElementById("diagOut");
+      document.getElementById("btnDiag").disabled = true;
+      out.innerHTML = '<span class="muted">Probando proveedores… (tarda unos segundos)</span>';
+      try {
+        const res = await fetch("/api/admin/diagnostics?live=1", { headers: authHeaders() });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || "No autorizado");
+        lastDiag = data;
+        const row = (label, val, cls) => `<div class="row"><span class="muted">${label}</span><span class="${cls || ""}" style="text-align:right;word-break:break-word">${val}</span></div>`;
+        let html = row("Proveedor (LLM_PROVIDER)", data.llm_provider_env || "(gemini)");
+        html += row("Clave Gemini", data.gemini_key_present ? "presente" : "FALTA", data.gemini_key_present ? "ok" : "err");
+        html += row("DeepHat", data.deephat_ready ? "configurado" : "no configurado", data.deephat_ready ? "ok" : "err");
+        if (data.gemini_live) {
+          html += row("Gemini (prueba)", data.gemini_live.ok ? `OK en ${data.gemini_live.seconds}s` : "FALLÓ", data.gemini_live.ok ? "ok" : "err");
+          if (!data.gemini_live.ok && data.gemini_live.error) html += `<div class="row"><span class="err" style="text-align:right">${data.gemini_live.error}</span></div>`;
+        }
+        if (data.deephat_live) {
+          html += row("DeepHat (prueba)", data.deephat_live.ok ? `OK en ${data.deephat_live.seconds}s` : "FALLÓ", data.deephat_live.ok ? "ok" : "err");
+          if (!data.deephat_live.ok && data.deephat_live.error) html += `<div class="row"><span class="err" style="text-align:right">${data.deephat_live.error}</span></div>`;
+        }
+        const errs = (data.recent_errors || []).slice(-8).reverse();
+        if (errs.length) {
+          html += '<hr style="border:0;border-top:1px solid #27272a;margin:12px 0" />';
+          html += '<div class="row"><strong>Últimos errores</strong><span></span></div>';
+          for (const e of errs) {
+            const when = (e.at || "").replace("T", " ").slice(5, 19);
+            html += `<div style="font-size:12px;color:#a1a1aa;margin:6px 0;line-height:1.4"><b style="color:#f4f4f5">${when} · ${e.provider}/${e.stage}</b><br>${(e.error || "").slice(0, 220)}</div>`;
+          }
+        } else {
+          html += '<p class="muted" style="font-size:12px;margin:10px 0 0">Sin errores registrados todavía.</p>';
+        }
+        out.innerHTML = html;
+        document.getElementById("btnDiagCopy").classList.remove("hidden");
+      } catch (e) {
+        out.innerHTML = `<span class="err">${e.message || "Error"}</span>`;
+      } finally {
+        document.getElementById("btnDiag").disabled = false;
+      }
+    }
+    document.getElementById("btnDiag").onclick = runDiag;
+    document.getElementById("btnDiagCopy").onclick = () => {
+      if (!lastDiag) return;
+      const text = JSON.stringify(lastDiag, null, 2);
+      if (navigator.clipboard) { navigator.clipboard.writeText(text); }
+      else { const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+      const b = document.getElementById("btnDiagCopy");
+      b.textContent = "¡Copiado!";
+      setTimeout(() => (b.textContent = "Copiar resultado para enviárselo a alguien"), 1500);
     };
 
     let usageTimer = null;
