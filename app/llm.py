@@ -138,36 +138,83 @@ _NO_NATIVE_TOOLS = (
 )
 
 
+def _tool_calls_to_protocol(message) -> str:
+    """Si el modelo (Ollama/HF) emite tool_calls nativos, los pasamos al JSON del protocolo."""
+    tcs = getattr(message, "tool_calls", None) or []
+    parts: list[str] = []
+    for tc in tcs:
+        fn = getattr(tc, "function", None)
+        if fn is None and isinstance(tc, dict):
+            fn = tc.get("function") or tc
+        if fn is None:
+            continue
+        if isinstance(fn, dict):
+            name = str(fn.get("name") or "").lower()
+            raw_args = fn.get("arguments") or "{}"
+        else:
+            name = str(getattr(fn, "name", "") or "").lower()
+            raw_args = getattr(fn, "arguments", "") or "{}"
+        try:
+            args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+        except Exception:
+            args = {"raw": str(raw_args)}
+        if not isinstance(args, dict):
+            args = {"raw": str(args)}
+        if name in {"python", "run_python", "code_execution", "code", "execute_python"}:
+            payload = {"tool": "python", "code": args.get("code") or args.get("source") or args.get("raw") or ""}
+        elif name in {"bash", "shell", "run", "terminal", "command"}:
+            payload = {"tool": "bash", "cmd": args.get("cmd") or args.get("command") or args.get("raw") or ""}
+        elif name in {"fetch", "web_fetch", "http_get"}:
+            payload = {"tool": "fetch", "url": args.get("url") or args.get("raw") or ""}
+        else:
+            payload = {"tool": name or "bash", **args}
+        parts.append("```json\n" + json.dumps(payload, ensure_ascii=False) + "\n```")
+    return "\n".join(parts)
+
+
+def _deephat_fallback_allowed() -> bool:
+    raw = os.getenv("DEEPHAT_FALLBACK_GEMINI", "0").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
 def _deephat_reply(messages: list[dict], temperature: float = 0.4) -> str:
     model = _deephat_model()
     api = _deephat_client()
 
-    def _call(msgs):
-        response = api.chat.completions.create(
-            model=model, messages=msgs, temperature=temperature,
-            tools=[], tool_choice="none",
-        )
-        content = (response.choices[0].message.content or "").strip()
+    def _call(msgs, *, forbid_native: bool):
+        kwargs = {"model": model, "messages": msgs, "temperature": temperature}
+        # tools=[] + tool_choice=none rompe algunos servidores Ollama/Colab.
+        # Solo lo usamos en el reintento si el primero vino vacío o con tool_calls.
+        if forbid_native:
+            kwargs["tools"] = []
+            kwargs["tool_choice"] = "none"
+        response = api.chat.completions.create(**kwargs)
+        message = response.choices[0].message
+        converted = _tool_calls_to_protocol(message)
+        if converted:
+            return converted
+        content = (getattr(message, "content", None) or "").strip()
         if not content:
             raise RuntimeError("el modelo respondió vacío (intentó una tool call nativa)")
         return content
 
     try:
-        return _call(messages)
+        return _call(messages, forbid_native=False)
     except Exception as exc:
-        # El modelo (gpt-oss vía Colab) suele intentar una tool call nativa
-        # (no soportada por este protocolo): el servidor la rechaza con 400 o
-        # responde vacío. Reintentamos UNA vez reforzando que responda solo
-        # en texto plano antes de rendirnos.
         record_llm_error("deephat", "llamada inicial", exc)
         retry_messages = list(messages) + [
             {"role": "system", "content": _NO_NATIVE_TOOLS.strip()}
         ]
         try:
-            return _call(retry_messages)
+            return _call(retry_messages, forbid_native=True)
         except Exception as exc2:
             record_llm_error("deephat", "reintento", exc2)
-            raise
+            # Último intento: sin flags de tools (Ollama a veces no acepta tool_choice).
+            try:
+                return _call(retry_messages, forbid_native=False)
+            except Exception as exc3:
+                record_llm_error("deephat", "reintento sin flags", exc3)
+                raise
 
 
 def resolve_provider(explicit: str | None = None) -> str:
@@ -246,6 +293,11 @@ FRIENDLY_FAIL = (
     "que no cerró bien). Probá de nuevo en un segundo, por favor."
 )
 
+DEEPHAT_FAIL = (
+    "No pude hablar con DeepHat (Colab/túnel o el modelo no devolvió texto). "
+    "Revisá que Colab siga arriba y que DEEPHAT_BASE_URL apunte a la URL /v1 actual."
+)
+
 
 def _safe_gemini_from_history(instructions: str, history: list[dict]) -> str | None:
     try:
@@ -291,11 +343,13 @@ def reply(
             LAST_PROVIDER.set("deephat")
             return text
         except Exception as exc:
-            # Fallback a Gemini; nunca filtrar detalles de auth de Deep Hat.
-            record_llm_error("deephat", "principal (pasa a Gemini)", exc)
-            text = _safe_gemini_from_history(instructions, history)
-            LAST_PROVIDER.set("gemini_fallback" if text else "error")
-            return text or FRIENDLY_FAIL
+            record_llm_error("deephat", "principal", exc)
+            if _deephat_fallback_allowed():
+                text = _safe_gemini_from_history(instructions, history)
+                LAST_PROVIDER.set("gemini_fallback" if text else "error")
+                return text or FRIENDLY_FAIL
+            LAST_PROVIDER.set("error")
+            return DEEPHAT_FAIL
     LAST_PROVIDER.set("gemini")
     return _safe_gemini_from_history(instructions, history) or FRIENDLY_FAIL
 
@@ -335,9 +389,13 @@ def reply_messages_routed(
             text = _deephat_reply(messages, temperature=temperature)
             LAST_PROVIDER.set("deephat")
             return text
-        except Exception:
-            text = _safe_reply_messages(messages, temperature=temperature)
-            LAST_PROVIDER.set("gemini_fallback" if text else "error")
-            return text or FRIENDLY_FAIL
+        except Exception as exc:
+            record_llm_error("deephat", "group", exc)
+            if _deephat_fallback_allowed():
+                text = _safe_reply_messages(messages, temperature=temperature)
+                LAST_PROVIDER.set("gemini_fallback" if text else "error")
+                return text or FRIENDLY_FAIL
+            LAST_PROVIDER.set("error")
+            return DEEPHAT_FAIL
     LAST_PROVIDER.set("gemini")
     return _safe_reply_messages(messages, temperature=temperature) or FRIENDLY_FAIL

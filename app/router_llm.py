@@ -6,7 +6,8 @@ import threading
 
 _GO = re.compile(
     r"abr|captura|computadora|naveg|entra|pasame|investig|github|gmail|"
-    r"and[a\u00e1]|login|herramient|base44|a fondo",
+    r"and[a\u00e1]|login|herramient|base44|a fondo|"
+    r"python|bash|c[o\u00f3]digo|calcul|ejecut|terminal|script",
     re.I,
 )
 _URL = re.compile(r"https?://")
@@ -40,7 +41,9 @@ def install() -> None:
 
     def reply(instructions, history, *, provider=None, scope="default"):
         want = llm.resolve_provider(provider)
-        if not is_heavy(_last_user(history)):
+        # DeepHat / Base44 pedidos en serio no se pisan con Gemini.
+        # Gemini solo entra en turns livianos cuando el default era Gemini.
+        if want not in {"deephat", "base44"} and not is_heavy(_last_user(history)):
             want = "gemini"
         if want == "base44":
             with _SLOTS:
@@ -50,7 +53,7 @@ def install() -> None:
     def reply_messages_routed(messages, temperature=0.4, *, provider=None, scope="default", instructions=""):
         hist = [m for m in (messages or []) if m.get("role") in {"user", "assistant"}]
         want = llm.resolve_provider(provider)
-        if not is_heavy(_last_user(hist)):
+        if want not in {"deephat", "base44"} and not is_heavy(_last_user(hist)):
             want = "gemini"
         if want == "base44":
             with _SLOTS:
