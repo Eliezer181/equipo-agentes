@@ -1,4 +1,10 @@
 (function () {
+  if (!document.querySelector('link[href*="composer-ios.css"]')) {
+    var ios = document.createElement("link");
+    ios.rel = "stylesheet";
+    ios.href = "/static/composer-ios.css?v=1";
+    document.head.appendChild(ios);
+  }
   var actions = document.querySelector(".top-actions");
   if (actions && !document.getElementById("btn-settings")) {
     var gear = document.createElement("button");
