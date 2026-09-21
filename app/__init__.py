@@ -10,6 +10,11 @@ def _install_progress() -> None:
     except Exception:
         pass
     try:
+        from app import tool_fastpath
+        tool_fastpath.install()
+    except Exception:
+        pass
+    try:
         from app import chat_routes  # noqa: F401
     except Exception:
         pass

@@ -11,7 +11,10 @@
   btn.title = "Adjuntar imagen";
   btn.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>';
   var input = composer.querySelector("#input");
-  input.parentNode.insertBefore(btn, input);
+  var row = composer.querySelector(".c-row") || (input && input.parentNode);
+  if (row && input) row.insertBefore(btn, input);
+  var send = composer.querySelector("button[type=submit]");
+  if (row && send && send.parentNode !== row) row.appendChild(send);
   document.body.appendChild(file);
 
   function compress(blob) {
