@@ -152,12 +152,12 @@ def speakers_for(group: dict, payload: ChatIn) -> list[dict]:
 
 @app.get("/health")
 def health():
-    return {"ok": True, "release": "v15"}
+    return {"ok": True, "release": "v16"}
 
 
 @app.get("/api/version")
 def version():
-    return {"release": "v15", "gemini": _using_gemini(), "models": _models(), "computer": True}
+    return {"release": "v16", "gemini": _using_gemini(), "models": _models(), "computer": True}
 
 
 @app.get("/")
