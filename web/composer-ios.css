@@ -1,83 +1,17 @@
-/* Una sola píldora: +  Mensaje  Enviar  (como el diseño original). */
+/* Solo Safari iOS: el textarea no debe pintarse blanco.
+   El layout lo siguen styles.css + glass-fx.css. */
 html { color-scheme: dark; }
-
-#composer.composer {
-  display: flex !important;
-  align-items: center !important;
-  gap: 0 !important;
-  padding: 8px 12px calc(12px + env(safe-area-inset-bottom)) !important;
-  background: transparent !important;
-  border: 0 !important;
-}
-
-#composer .c-row {
-  display: flex !important;
-  align-items: center !important;
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  gap: 2px !important;
-  overflow: hidden !important;
-  border-radius: 24px !important;
-  padding: 4px 8px 4px 8px !important;
-  background: rgba(255,255,255,.055) !important;
-  border: 1px solid rgba(255,255,255,.13) !important;
-}
-
-#composer #btn-attach,
-#composer #btn-at {
-  width: 32px !important;
-  height: 32px !important;
-  flex-shrink: 0 !important;
-  align-self: center !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: rgba(245,245,247,.8) !important;
-}
 
 #composer #input,
 #composer textarea {
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
   background: transparent !important;
-  background-color: rgba(0,0,0,0) !important;
-  color: #f5f5f7 !important;
-  -webkit-text-fill-color: #f5f5f7 !important;
-  caret-color: #fbbf24;
+  background-color: transparent !important;
   -webkit-appearance: none !important;
   appearance: none !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  outline: none !important;
-  padding: 8px 4px !important;
+  -webkit-text-fill-color: #f5f5f7;
 }
 
 #composer #input::placeholder,
 #composer textarea::placeholder {
-  color: rgba(235, 235, 245, 0.45) !important;
-  -webkit-text-fill-color: rgba(235, 235, 245, 0.45) !important;
-  opacity: 1;
-}
-
-#composer button[type=submit] {
-  flex-shrink: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: rgba(235, 235, 245, 0.45) !important;
-  font-weight: 400 !important;
-  font-size: 16px !important;
-  padding: 8px 8px 8px 4px !important;
-  align-self: center !important;
-}
-
-#composer #input:-webkit-autofill,
-#composer #input:-webkit-autofill:focus {
-  -webkit-text-fill-color: #f5f5f7 !important;
-  transition: background-color 9999s ease-out;
-  caret-color: #fbbf24;
+  -webkit-text-fill-color: rgba(235, 235, 245, 0.45);
 }
