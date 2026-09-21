@@ -142,7 +142,7 @@
   };
   document.getElementById("set-out").onclick = async function () {
     await fetch("/api/auth/logout", { method: "POST" });
-    location.href = "/landing";
+    location.href = "/";
   };
 
   var s = document.createElement("script");

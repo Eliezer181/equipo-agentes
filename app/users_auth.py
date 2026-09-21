@@ -16,6 +16,29 @@ COOKIE = "ea_session"
 FREE_CREDITS = float(os.getenv("FREE_USER_CREDITS", "5"))
 
 
+def auth_required() -> bool:
+    """Login obligatorio solo si AUTH_REQUIRED=1."""
+    return os.getenv("AUTH_REQUIRED", "0").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def guest_user() -> dict:
+    return {
+        "email": "dev@local",
+        "plan": "pro",
+        "payment_status": "active",
+        "credits_remaining": 9999.0,
+        "credits_used": 0.0,
+        "is_pro": True,
+        "guest": True,
+    }
+
+
+def wipe_auth_store() -> None:
+    """Borra users.json y sessions.json del volumen."""
+    save_users({})
+    save_sessions({})
+
+
 def _read(path: Path, default):
     if not path.exists():
         return default
@@ -119,6 +142,8 @@ def destroy_session(sid: str | None) -> None:
 
 
 def user_from_session(sid: str | None) -> dict | None:
+    if not auth_required():
+        return guest_user()
     if not sid:
         return None
     data = sessions()
@@ -167,10 +192,6 @@ def credits_exhausted(user: dict | None) -> bool:
 
 
 def reset_password(email: str, new_password: str) -> dict:
-    """Restablece la contraseña de un usuario (uso administrador).
-
-    Invalida las sesiones activas de ese usuario para mayor seguridad.
-    """
     key = (email or "").strip().lower()
     users = list_users()
     if key not in users:
@@ -181,7 +202,6 @@ def reset_password(email: str, new_password: str) -> dict:
     users[key]["salt"] = salt
     users[key]["password_hash"] = hashed
     save_users(users)
-    # Invalidar sesiones activas de ese usuario
     data = sessions()
     data = {sid: row for sid, row in data.items() if row.get("email") != key}
     save_sessions(data)
@@ -189,7 +209,6 @@ def reset_password(email: str, new_password: str) -> dict:
 
 
 def change_password(email: str, current_password: str, new_password: str) -> dict:
-    """Cambia la contraseña del usuario autenticado."""
     key = (email or "").strip().lower()
     users = list_users()
     user = users.get(key)
@@ -202,3 +221,10 @@ def change_password(email: str, current_password: str, new_password: str) -> dic
     user["password_hash"] = hashed
     save_users(users)
     return public_user(user)
+
+
+if not auth_required():
+    try:
+        wipe_auth_store()
+    except Exception:
+        pass
