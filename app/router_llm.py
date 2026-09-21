@@ -40,30 +40,13 @@ def install() -> None:
     orig_group = llm.reply_messages_routed
 
     def reply(instructions, history, *, provider=None, scope="default"):
-        want = llm.resolve_provider(provider)
-        # DeepHat / Base44 pedidos en serio no se pisan con Gemini.
-        # Gemini solo entra en turns livianos cuando el default era Gemini.
-        if want not in {"deephat", "base44"} and not is_heavy(_last_user(history)):
-            want = "gemini"
-        if want == "base44":
-            with _SLOTS:
-                return orig(instructions, history, provider="base44", scope=scope)
-        return orig(instructions, history, provider=want, scope=scope)
+        # Etapa actual: un solo cerebro (DeepHat). Gemini no interviene.
+        return orig(instructions, history, provider="deephat", scope=scope)
 
     def reply_messages_routed(messages, temperature=0.4, *, provider=None, scope="default", instructions=""):
-        hist = [m for m in (messages or []) if m.get("role") in {"user", "assistant"}]
-        want = llm.resolve_provider(provider)
-        if want not in {"deephat", "base44"} and not is_heavy(_last_user(hist)):
-            want = "gemini"
-        if want == "base44":
-            with _SLOTS:
-                return orig_group(
-                    messages, temperature,
-                    provider="base44", scope=scope, instructions=instructions,
-                )
         return orig_group(
             messages, temperature,
-            provider=want, scope=scope, instructions=instructions,
+            provider="deephat", scope=scope, instructions=instructions,
         )
 
     reply._routed = True
